@@ -594,8 +594,8 @@ namespace DonkeycarManager
             isUpdatingSelection = true;
             lstCleanerFrames.BeginUpdate();
 
-            // 다중 선택이 가능하도록 모드 변경 및 기존 선택 초기화
-            lstCleanerFrames.SelectionMode = SelectionMode.MultiExtended;
+            // 단순히 클릭만으로도 선택/해제를 토글할 수 있는 MultiSimple 모드 사용
+            lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
             lstCleanerFrames.ClearSelected();
 
             int count = 0;
