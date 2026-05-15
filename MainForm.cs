@@ -120,12 +120,32 @@ namespace DonkeycarManager
             if (visibleFrames.Count == 0)
                 return;
 
+            // 모든 프레임이 다 선택 상태라면 (필터링되어 볼 이미지가 없다면) 자동재생 중지
+            if (lstCleanerFrames.SelectedIndices.Count == visibleFrames.Count)
+            {
+                autoPlayTimer.Enabled = false;
+                btnAutoPlay.Text = "자동 재생";
+                AppendLog("모든 프레임이 필터링에 걸려 자동 재생을 중지합니다.");
+                return;
+            }
+
             int next = currentIndex + 1;
+            int maxChecks = visibleFrames.Count; // 무한루프 방지
 
-            if (next >= visibleFrames.Count)
-                next = 0;
+            for (int i = 0; i < maxChecks; i++)
+            {
+                if (next >= visibleFrames.Count)
+                    next = 0;
 
-            ShowFrame(next);
+                // 백업/삭제 대상인 프레임(선택 목록에 포함된 프레임)이 아니면 해당 프레임 재생
+                if (!lstCleanerFrames.SelectedIndices.Contains(next))
+                {
+                    ShowFrame(next);
+                    return;
+                }
+
+                next++;
+            }
         }
 
         private void btnApplyFilter_Click(object? sender, EventArgs e)
