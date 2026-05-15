@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -29,15 +30,22 @@ namespace DonkeycarManager
         public MainForm()
         {
             InitializeComponent();
+            
+            lstCleanerFrames.SelectionMode = SelectionMode.MultiExtended; 
+            lstCleanerFrames.DrawMode = DrawMode.OwnerDrawFixed;
+            lstCleanerFrames.ItemHeight = 16; 
+            lstCleanerFrames.HorizontalScrollbar = false;
+
+            // [추가] 리스트박스 깜빡임(Flickering)을 완벽히 없애는 마법의 코드 (DoubleBuffered 켜기)
+            typeof(Control).GetProperty("DoubleBuffered", BindingFlags.NonPublic | BindingFlags.Instance)
+                           ?.SetValue(lstCleanerFrames, true, null);
+
+            lstCleanerFrames.DrawItem += LstCleanerFrames_DrawItem;
+
             ConnectEvents();
-
-            txtPythonExe.Text = "python";
-            txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
-
-            autoPlayTimer.Interval = 150;
+            
+            autoPlayTimer.Interval = 100;
             autoPlayTimer.Tick += AutoPlayTimer_Tick;
-
-            AppendLog("프로그램 실행 완료");
         }
 
         private void ConnectEvents()
@@ -117,13 +125,31 @@ namespace DonkeycarManager
 
         private void AutoPlayTimer_Tick(object? sender, EventArgs e)
         {
-            if (visibleFrames.Count == 0)
-                return;
+            if (visibleFrames.Count == 0) return;
 
             int next = currentIndex + 1;
+            int startIndex = next;
 
-            if (next >= visibleFrames.Count)
-                next = 0;
+            while (true)
+            {
+                if (next >= visibleFrames.Count) next = 0;
+
+                // 파란색(선택됨)이면 건너뜀
+                if (lstCleanerFrames.Items.Count > next && lstCleanerFrames.GetSelected(next))
+                {
+                    next++;
+                    if (next == startIndex || (startIndex >= visibleFrames.Count && next == 0))
+                    {
+                        autoPlayTimer.Enabled = false;
+                        btnAutoPlay.Text = "자동 재생";
+                        return;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             ShowFrame(next);
         }
@@ -178,9 +204,32 @@ namespace DonkeycarManager
 
                 string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
 
-                if (File.Exists(imagePath))
-                    File.Delete(imagePath);
+                // --- 1. backup 폴더 생성 ---
+                string backupFolderPath = Path.Combine(dataFolderPath, "backup");
+                if (!Directory.Exists(backupFolderPath))
+                {
+                    Directory.CreateDirectory(backupFolderPath);
+                }
 
+                // --- 2. 원본 카탈로그 파일 백업 (삭제를 시작하기 전 최초 1회만 백업본 생성) ---
+                string backupCatalogPath = Path.Combine(backupFolderPath, "catalog_0.catalog");
+                if (!File.Exists(backupCatalogPath) && File.Exists(catalogFilePath))
+                {
+                    File.Copy(catalogFilePath, backupCatalogPath);
+                }
+
+                // --- 3. 이미지를 backup 폴더로 복사한 후 원본 삭제 ---
+                if (File.Exists(imagePath))
+                {
+                    string backupImagePath = Path.Combine(backupFolderPath, frame.ImageFileName);
+                    File.Copy(imagePath, backupImagePath, true); // 백업 폴더로 복사 저장
+                    File.Delete(imagePath);                      // 원래 images 폴더 안의 파일은 삭제
+                    
+                    // 참고: 복사 후 삭제 대신 이동(File.Move)을 사용하려면 위 두 줄 대신 
+                    // File.Move(imagePath, backupImagePath, true); 를 사용해도 됩니다.
+                }
+
+                // 4. 리스트에서 제거 및 저장
                 allFrames.RemoveAll(f =>
                     f.Index == frame.Index &&
                     f.ImageFileName == frame.ImageFileName
@@ -189,7 +238,7 @@ namespace DonkeycarManager
                 SaveCatalog();
                 ApplyFilter();
 
-                AppendLog($"삭제 완료: index={frame.Index}, image={frame.ImageFileName}");
+                AppendLog($"삭제 완료(백업됨): index={frame.Index}, image={frame.ImageFileName}");
             }
             catch (Exception ex)
             {
@@ -474,14 +523,30 @@ namespace DonkeycarManager
 
             isUpdatingSelection = true;
 
+            // Viewer 탭(lstFrames) 처리 
             if (lstFrames.SelectedIndex != index)
                 lstFrames.SelectedIndex = index;
 
-            if (lstCleanerFrames.SelectedIndex != index)
-                lstCleanerFrames.SelectedIndex = index;
+            if (lstCleanerFrames.Items.Count > index)
+            {
+                // [부활시킨 자동 스크롤 로직]
+                // 현재 인덱스가 화면 시야(Top ~ Bottom)를 벗어나면, 스크롤을 따라가게 만듭니다.
+                int visibleItemsCount = lstCleanerFrames.ClientSize.Height / lstCleanerFrames.ItemHeight;
+                
+                // 만약 현재 노란 줄(index)이 화면 맨 위보다 위에 있거나, 화면 맨 아래보다 아래에 있다면
+                if (index < lstCleanerFrames.TopIndex || index >= lstCleanerFrames.TopIndex + visibleItemsCount)
+                {
+                    // 부드럽게 노란 줄이 맨 밑이나 맨 위에 보이도록 스크롤 이동
+                    if (index >= lstCleanerFrames.TopIndex + visibleItemsCount)
+                        lstCleanerFrames.TopIndex = index - visibleItemsCount + 1; // 화면 맨 밑에 걸치게
+                    else
+                        lstCleanerFrames.TopIndex = index; // 화면 맨 위에 걸치게
+                }
 
-            isUpdatingSelection = false;
-        }
+
+                }
+            }
+
 
         private void LoadImageToPictureBox(PictureBox pictureBox, string imagePath)
         {
@@ -512,28 +577,54 @@ namespace DonkeycarManager
 
         private void ApplyFilter()
         {
-            IEnumerable<DonkeyFrame> query = allFrames;
-
-            if (chkThrottlePositive.Checked)
-                query = query.Where(f => f.Throttle > 0);
-
-            if (chkExcludeZeroAngle.Checked)
-                query = query.Where(f => Math.Abs(f.Angle) > 0.000001);
-
-            if (chkStopDataOnly.Checked)
-                query = query.Where(f => Math.Abs(f.Throttle) <= 0.000001);
-
-            visibleFrames = query.ToList();
-
+            // 전체 프레임을 화면 리스트에 유지해야 하므로 visibleFrames를 필터링되지 않은 상태로 설정
+            visibleFrames = allFrames.ToList();
+            
+            // 리스트 다시 그리기
             BindFrameLists();
             SetupTrackBar();
 
+            // 리스트박스 선택 상태 변경을 시작합니다.
+            lstCleanerFrames.BeginUpdate();
+            lstCleanerFrames.ClearSelected(); // 기존 선택 해제
+
+            int matchCount = 0;
+            
+            // 조건에 맞는 인덱스만 하이라이트 되도록 선택(Select)합니다.
+            for (int i = 0; i < visibleFrames.Count; i++)
+            {
+                DonkeyFrame f = visibleFrames[i];
+                bool match = true;
+
+                if (chkThrottlePositive.Checked && f.Throttle <= 0)
+                    match = false;
+
+                if (chkExcludeZeroAngle.Checked && Math.Abs(f.Angle) <= 0.000001)
+                    match = false;
+
+                if (chkStopDataOnly.Checked && Math.Abs(f.Throttle) > 0.000001)
+                    match = false;
+
+                // [수정된 부분] 필터가 하나라도 체크되어 있고, 해당 조건을 '만족하지 않는'(!match) 프레임을 선택
+                bool isAnyFilterActive = chkThrottlePositive.Checked || 
+                                         chkExcludeZeroAngle.Checked || 
+                                         chkStopDataOnly.Checked;
+
+                if (isAnyFilterActive && !match)
+                {
+                    lstCleanerFrames.SetSelected(i, true);
+                    matchCount++;
+                }
+            }
+            
+            lstCleanerFrames.EndUpdate();
+            
             if (visibleFrames.Count > 0)
                 ShowFrame(0);
             else
                 ClearViewer();
 
-            AppendLog($"필터 적용 후 {visibleFrames.Count}개 프레임");
+            AppendLog($"필터 적용: {matchCount}개 프레임이 선택됨");
         }
 
         private void ClearViewer()
@@ -647,5 +738,48 @@ namespace DonkeycarManager
 
             base.OnFormClosed(e);
         }
-    }
-}
+
+        private void LstCleanerFrames_DrawItem(object? sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            bool isCurrentPlaying = (e.Index == currentIndex);
+
+            Color backColor = lstCleanerFrames.BackColor;
+            Color foreColor = lstCleanerFrames.ForeColor;
+
+            if (isSelected) 
+            {
+                backColor = SystemColors.Highlight;
+                foreColor = SystemColors.HighlightText; 
+            }
+            else if (isCurrentPlaying)
+            {
+                backColor = Color.LightYellow;
+                foreColor = Color.Black; 
+            }
+
+            // e.DrawBackground() 금지! 100% 수동으로 덮어버리기
+            using (SolidBrush bgBrush = new SolidBrush(backColor))
+            {
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
+            }
+
+            string text = lstCleanerFrames.Items[e.Index].ToString() ?? "";
+            using (SolidBrush textBrush = new SolidBrush(foreColor))
+            {
+                e.Graphics.DrawString(text, e.Font ?? lstCleanerFrames.Font, textBrush, e.Bounds.X, e.Bounds.Y);
+            }
+
+            if ((e.State & DrawItemState.Focus) == DrawItemState.Focus)
+            {
+                e.DrawFocusRectangle();
+            }
+        }
+        
+        // MainForm 클래스 멤버로 추가해주세요.
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int SendMessage(IntPtr hWnd, int wMsg, bool wParam, int lParam);
+        private const int WM_SETREDRAW = 11;
+    }}
