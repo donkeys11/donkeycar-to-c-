@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -26,16 +28,29 @@ namespace DonkeycarManager
         private Process? trainProcess;
         private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
 
+        private const string WslDistroName = "Ubuntu-22.04";
+        private const string CondaEnvName = "e2e_env";
+
+        private double? overlayActualAngle = null;
+        private double? overlayPredictedAngle = null;
+        private double? overlayActualThrottle = null;
+        private double? overlayPredictedThrottle = null;
+
         public MainForm()
         {
             InitializeComponent();
             ConnectEvents();
 
-            txtPythonExe.Text = "python";
+            txtMycarPath.Text = "~/mycar";
+            txtPythonExe.Text = "wsl";
             txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
+            txtModelPath.Text = "~/mycar/models/mypilot.h5";
 
             autoPlayTimer.Interval = 150;
             autoPlayTimer.Tick += AutoPlayTimer_Tick;
+
+            picPilotTest.Paint += picPilotTest_Paint;
+            picPilotTest.Resize += (s, e) => picPilotTest.Invalidate();
 
             AppendLog("프로그램 실행 완료");
         }
@@ -88,7 +103,7 @@ namespace DonkeycarManager
 
             DirectoryInfo? parent = Directory.GetParent(dataFolderPath);
             if (parent != null)
-                txtMycarPath.Text = parent.FullName;
+                txtMycarPath.Text = "~/mycar";
 
             lblDataPath.Text = "Data Folder: " + dataFolderPath;
 
@@ -215,15 +230,15 @@ namespace DonkeycarManager
             string pythonExe = txtPythonExe.Text.Trim();
             string trainArgs = txtTrainArgs.Text.Trim();
 
-            if (string.IsNullOrWhiteSpace(mycarPath) || !Directory.Exists(mycarPath))
+            if (string.IsNullOrWhiteSpace(mycarPath))
             {
-                MessageBox.Show("mycar 폴더 경로를 먼저 지정하세요.");
+                MessageBox.Show("mycar 경로를 입력하세요.\n예: ~/mycar");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(pythonExe))
             {
-                MessageBox.Show("Python 실행 파일명을 입력하세요.");
+                MessageBox.Show("Python 실행명을 입력하세요.\nWSL을 사용할 경우 wsl을 입력하세요.");
                 return;
             }
 
@@ -233,26 +248,36 @@ namespace DonkeycarManager
                 return;
             }
 
-            txtLog.Clear();
-            AppendLog("학습 시작");
-            AppendLog("WorkingDirectory = " + mycarPath);
-            AppendLog("Command = " + pythonExe + " " + trainArgs);
+            bool useWsl = IsWslMode(pythonExe);
 
-            ProcessStartInfo psi = new ProcessStartInfo
+            if (!useWsl && !Directory.Exists(mycarPath))
             {
-                FileName = pythonExe,
-                Arguments = trainArgs,
-                WorkingDirectory = mycarPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                MessageBox.Show(
+                    "Windows 경로의 mycar 폴더를 찾을 수 없습니다.\n" +
+                    "WSL을 사용할 경우 Python 실행명에 wsl을 입력하고 mycar 경로는 ~/mycar로 입력하세요."
+                );
+                return;
+            }
+
+            txtLog.Clear();
+
+            AppendLog("학습 시작");
+            AppendLog("실행 방식: " + (useWsl ? "WSL + Conda" : "Windows Python"));
+            AppendLog("mycar 경로 = " + mycarPath);
+            AppendLog("학습 인자 = " + trainArgs);
+
+            ProcessStartInfo psi;
+
+            if (useWsl)
+                psi = CreateWslTrainProcessStartInfo(mycarPath, trainArgs);
+            else
+                psi = CreateLocalTrainProcessStartInfo(pythonExe, mycarPath, trainArgs);
 
             try
             {
                 trainProcess = new Process();
                 trainProcess.StartInfo = psi;
+                trainProcess.EnableRaisingEvents = true;
 
                 trainProcess.OutputDataReceived += (s, ev) =>
                 {
@@ -295,7 +320,12 @@ namespace DonkeycarManager
 
                 MessageBox.Show(
                     "학습 실행에 실패했습니다.\n\n" +
-                    "WSL 또는 Conda 환경이면 Python 실행명과 WorkingDirectory를 환경에 맞게 수정해야 합니다.\n\n" +
+                    "확인할 것:\n" +
+                    "1. WSL 이름이 맞는지 확인\n" +
+                    "2. Conda 환경 이름이 맞는지 확인\n" +
+                    "3. ~/mycar 폴더 안에 train.py와 data 폴더가 있는지 확인\n" +
+                    "4. ~/mycar/data 안에 manifest.json이 있는지 확인\n" +
+                    "5. Ubuntu 터미널에서 직접 학습 명령이 되는지 확인\n\n" +
                     ex.Message
                 );
             }
@@ -331,7 +361,7 @@ namespace DonkeycarManager
             }
         }
 
-        private void btnRunPilotTest_Click(object? sender, EventArgs e)
+        private async void btnRunPilotTest_Click(object? sender, EventArgs e)
         {
             if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
             {
@@ -341,13 +371,85 @@ namespace DonkeycarManager
 
             DonkeyFrame frame = visibleFrames[currentIndex];
 
+            string modelPath = txtModelPath.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(modelPath))
+            {
+                modelPath = "~/mycar/models/mypilot.h5";
+                txtModelPath.Text = modelPath;
+            }
+
+            string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+
+            overlayActualAngle = null;
+            overlayPredictedAngle = null;
+            overlayActualThrottle = null;
+            overlayPredictedThrottle = null;
+            picPilotTest.Invalidate();
+
             lblActualAngle.Text = $"실제 Angle: {frame.Angle:F4}";
-            lblPredictedAngle.Text = "예측 Angle: Python 연동 필요";
+            lblActualThrottle.Text = $"실제 Throttle: {frame.Throttle:F4}";
+            lblPredictedAngle.Text = "예측 Angle: 실행 중...";
+            lblPredictedThrottle.Text = "예측 Throttle: 실행 중...";
+            lblAngleError.Text = "Angle Error: 계산 중...";
+            lblPilotWarning.Text = "판정: 예측 실행 중";
+            lblPilotWarning.ForeColor = Color.DimGray;
 
-            LoadImageToPictureBox(picPilotTest, Path.Combine(imagesFolderPath, frame.ImageFileName));
+            LoadImageToPictureBox(picPilotTest, imagePath);
 
-            AppendLog("Pilot Test 요청");
-            AppendLog("현재 UI는 모델 테스트 자리만 제공하며, 실제 예측은 Python 연동 담당이 구현해야 합니다.");
+            AppendLog("Pilot Test 시작");
+            AppendLog("Model = " + modelPath);
+            AppendLog("Image = " + imagePath);
+
+            try
+            {
+                (double predictedAngle, double predictedThrottle) =
+                    await RunPredictOneInWslAsync(modelPath, imagePath);
+
+                double angleError = Math.Abs(frame.Angle - predictedAngle);
+
+                lblPredictedAngle.Text = $"예측 Angle: {predictedAngle:F4}";
+                lblPredictedThrottle.Text = $"예측 Throttle: {predictedThrottle:F4}";
+                lblAngleError.Text = $"Angle Error: {angleError:F4}";
+
+                Color warningColor = GetErrorColor(angleError);
+                lblPilotWarning.ForeColor = warningColor;
+                lblPilotWarning.Text = "판정: " + GetErrorMessage(angleError);
+
+                overlayActualAngle = frame.Angle;
+                overlayPredictedAngle = predictedAngle;
+                overlayActualThrottle = frame.Throttle;
+                overlayPredictedThrottle = predictedThrottle;
+
+                picPilotTest.Invalidate();
+
+                AppendLog($"실제 Angle = {frame.Angle:F4}");
+                AppendLog($"예측 Angle = {predictedAngle:F4}");
+                AppendLog($"Angle Error = {angleError:F4}");
+                AppendLog($"실제 Throttle = {frame.Throttle:F4}");
+                AppendLog($"예측 Throttle = {predictedThrottle:F4}");
+                AppendLog("Pilot Test 완료");
+            }
+            catch (Exception ex)
+            {
+                lblPredictedAngle.Text = "예측 Angle: 실패";
+                lblPredictedThrottle.Text = "예측 Throttle: 실패";
+                lblAngleError.Text = "Angle Error: 실패";
+                lblPilotWarning.Text = "판정: 예측 실패";
+                lblPilotWarning.ForeColor = Color.Red;
+
+                AppendLog("Pilot Test 실패: " + ex.Message);
+
+                MessageBox.Show(
+                    "예측 테스트 실행에 실패했습니다.\n\n" +
+                    "확인할 것:\n" +
+                    "1. ~/mycar/predict_one.py 파일이 있는지 확인\n" +
+                    "2. ~/mycar/models/mypilot.h5 파일이 있는지 확인\n" +
+                    "3. 현재 선택한 이미지 파일이 실제로 존재하는지 확인\n" +
+                    "4. WSL 이름과 Conda 환경 이름이 맞는지 확인\n\n" +
+                    ex.Message
+                );
+            }
         }
 
         private void lstFrames_SelectedIndexChanged(object? sender, EventArgs e)
@@ -461,6 +563,12 @@ namespace DonkeycarManager
             LoadImageToPictureBox(picFrame, imagePath);
             LoadImageToPictureBox(picCleanerPreview, imagePath);
 
+            overlayActualAngle = null;
+            overlayPredictedAngle = null;
+            overlayActualThrottle = null;
+            overlayPredictedThrottle = null;
+            picPilotTest.Invalidate();
+
             lblFrameInfo.Text = $"Frame: {index + 1} / {visibleFrames.Count}";
             lblAngle.Text = $"Angle: {frame.Angle:F4}";
             lblThrottle.Text = $"Throttle: {frame.Throttle:F4}";
@@ -542,13 +650,24 @@ namespace DonkeycarManager
 
             DisposeCurrentImages();
 
+            overlayActualAngle = null;
+            overlayPredictedAngle = null;
+            overlayActualThrottle = null;
+            overlayPredictedThrottle = null;
+
             lblFrameInfo.Text = "Frame: -";
             lblAngle.Text = "Angle: -";
             lblThrottle.Text = "Throttle: -";
             lblMode.Text = "Mode: -";
             lblCleanerInfo.Text = "선택 프레임 정보: -";
+
             lblActualAngle.Text = "실제 Angle: -";
             lblPredictedAngle.Text = "예측 Angle: -";
+            lblActualThrottle.Text = "실제 Throttle: -";
+            lblPredictedThrottle.Text = "예측 Throttle: -";
+            lblAngleError.Text = "Angle Error: -";
+            lblPilotWarning.Text = "판정: -";
+            lblPilotWarning.ForeColor = Color.DimGray;
 
             isUpdatingSelection = true;
             lstFrames.Items.Clear();
@@ -584,6 +703,206 @@ namespace DonkeycarManager
             File.WriteAllLines(catalogFilePath, lines);
         }
 
+        private bool IsWslMode(string pythonExe)
+        {
+            return pythonExe.Equals("wsl", StringComparison.OrdinalIgnoreCase)
+                || pythonExe.Equals("wsl.exe", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private ProcessStartInfo CreateLocalTrainProcessStartInfo(string pythonExe, string mycarPath, string trainArgs)
+        {
+            return new ProcessStartInfo
+            {
+                FileName = pythonExe,
+                Arguments = trainArgs,
+                WorkingDirectory = mycarPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+        }
+
+        private ProcessStartInfo CreateWslTrainProcessStartInfo(string mycarPath, string trainArgs)
+        {
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+
+            string command =
+                "source ~/miniconda3/etc/profile.d/conda.sh && " +
+                $"conda activate {CondaEnvName} && " +
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"python {trainArgs}";
+
+            AppendLog("WSL Train Command = " + command);
+
+            return new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+        }
+
+        private async Task<(double angle, double throttle)> RunPredictOneInWslAsync(string modelPath, string imagePath)
+        {
+            string wslModelPath = ConvertPathToWslPath(modelPath);
+            string wslImagePath = ConvertPathToWslPath(imagePath);
+
+            string command =
+                "source ~/miniconda3/etc/profile.d/conda.sh && " +
+                $"conda activate {CondaEnvName} && " +
+                "cd ~/mycar && " +
+                $"python predict_one.py --model {BashQuote(wslModelPath)} --image {BashQuote(wslImagePath)}";
+
+            AppendLog("WSL Predict Command = " + command);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            StringBuilder outputBuilder = new StringBuilder();
+            StringBuilder errorBuilder = new StringBuilder();
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+
+            process.OutputDataReceived += (s, ev) =>
+            {
+                if (!string.IsNullOrWhiteSpace(ev.Data))
+                {
+                    outputBuilder.AppendLine(ev.Data);
+
+                    BeginInvoke(new Action(() =>
+                    {
+                        AppendLog(ev.Data);
+                    }));
+                }
+            };
+
+            process.ErrorDataReceived += (s, ev) =>
+            {
+                if (!string.IsNullOrWhiteSpace(ev.Data))
+                {
+                    errorBuilder.AppendLine(ev.Data);
+
+                    BeginInvoke(new Action(() =>
+                    {
+                        AppendLog("[ERR] " + ev.Data);
+                    }));
+                }
+            };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            await Task.Run(() => process.WaitForExit());
+
+            string stdout = outputBuilder.ToString();
+            string stderr = errorBuilder.ToString();
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception(
+                    "Python 예측 스크립트가 실패했습니다.\n\n" +
+                    stderr
+                );
+            }
+
+            string? jsonLine = stdout
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .LastOrDefault(line => line.TrimStart().StartsWith("{"));
+
+            if (string.IsNullOrWhiteSpace(jsonLine))
+            {
+                throw new Exception(
+                    "Python 예측 결과 JSON을 찾지 못했습니다.\n\n출력:\n" +
+                    stdout
+                );
+            }
+
+            using JsonDocument doc = JsonDocument.Parse(jsonLine);
+            JsonElement root = doc.RootElement;
+
+            bool ok = root.GetProperty("ok").GetBoolean();
+
+            if (!ok)
+            {
+                string error = root.TryGetProperty("error", out JsonElement err)
+                    ? err.GetString() ?? "Unknown error"
+                    : "Unknown error";
+
+                throw new Exception(error);
+            }
+
+            double angle = root.GetProperty("angle").GetDouble();
+            double throttle = root.GetProperty("throttle").GetDouble();
+
+            return (angle, throttle);
+        }
+
+        private string ConvertPathToWslPath(string path)
+        {
+            path = path.Trim().Trim('"');
+
+            if (path.StartsWith("~/"))
+                return path;
+
+            if (path.StartsWith("/"))
+                return path;
+
+            string prefix1 = @"\\wsl.localhost\" + WslDistroName + @"\";
+            string prefix2 = @"\\wsl$\" + WslDistroName + @"\";
+
+            if (path.StartsWith(prefix1, StringComparison.OrdinalIgnoreCase))
+            {
+                string relative = path.Substring(prefix1.Length);
+                return "/" + relative.Replace("\\", "/");
+            }
+
+            if (path.StartsWith(prefix2, StringComparison.OrdinalIgnoreCase))
+            {
+                string relative = path.Substring(prefix2.Length);
+                return "/" + relative.Replace("\\", "/");
+            }
+
+            if (path.Length >= 3 && path[1] == ':' && path[2] == '\\')
+            {
+                char drive = char.ToLower(path[0]);
+                string rest = path.Substring(3).Replace("\\", "/");
+                return $"/mnt/{drive}/{rest}";
+            }
+
+            return path.Replace("\\", "/");
+        }
+
+        private string BashCdArgument(string value)
+        {
+            if (value.StartsWith("~/"))
+                return value;
+
+            return BashQuote(value);
+        }
+
+        private string BashQuote(string value)
+        {
+            return "'" + value.Replace("'", "'\"'\"'") + "'";
+        }
+
+        private string QuoteWindowsArgument(string value)
+        {
+            return "\"" + value.Replace("\"", "\\\"") + "\"";
+        }
+
         private void UpdateModelStatus()
         {
             string mycarPath = txtMycarPath.Text.Trim();
@@ -591,6 +910,12 @@ namespace DonkeycarManager
             if (string.IsNullOrWhiteSpace(mycarPath))
             {
                 lblModelStatus.Text = "모델 상태: mycar 경로 없음";
+                return;
+            }
+
+            if (mycarPath.StartsWith("~/"))
+            {
+                lblModelStatus.Text = "모델 상태: WSL 경로 사용 중";
                 return;
             }
 
@@ -604,19 +929,19 @@ namespace DonkeycarManager
 
         private void DisposeCurrentImages()
         {
-            if (picFrame.Image != null)
+            if (picFrame != null && picFrame.Image != null)
             {
                 picFrame.Image.Dispose();
                 picFrame.Image = null;
             }
 
-            if (picCleanerPreview.Image != null)
+            if (picCleanerPreview != null && picCleanerPreview.Image != null)
             {
                 picCleanerPreview.Image.Dispose();
                 picCleanerPreview.Image = null;
             }
 
-            if (picPilotTest.Image != null)
+            if (picPilotTest != null && picPilotTest.Image != null)
             {
                 picPilotTest.Image.Dispose();
                 picPilotTest.Image = null;
@@ -626,6 +951,305 @@ namespace DonkeycarManager
         private void AppendLog(string message)
         {
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+        }
+
+        private void picPilotTest_Paint(object? sender, PaintEventArgs e)
+        {
+            if (picPilotTest.Image == null)
+                return;
+
+            Rectangle imgRect = GetZoomedImageRectangle(picPilotTest);
+
+            if (imgRect.Width <= 0 || imgRect.Height <= 0)
+                return;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            DrawCenterGuideLine(e.Graphics, imgRect);
+
+            if (overlayActualAngle.HasValue && overlayPredictedAngle.HasValue)
+                DrawSteeringGapArea(e.Graphics, imgRect, overlayActualAngle.Value, overlayPredictedAngle.Value);
+
+            if (overlayActualAngle.HasValue)
+            {
+                DrawSteeringOverlay(
+                    e.Graphics,
+                    imgRect,
+                    overlayActualAngle.Value,
+                    Color.DeepSkyBlue,
+                    5f,
+                    "Actual"
+                );
+            }
+
+            if (overlayPredictedAngle.HasValue)
+            {
+                DrawSteeringOverlay(
+                    e.Graphics,
+                    imgRect,
+                    overlayPredictedAngle.Value,
+                    Color.LimeGreen,
+                    5f,
+                    "Pred"
+                );
+            }
+
+            DrawThrottleBars(e.Graphics, imgRect);
+            DrawErrorPanel(e.Graphics, imgRect);
+            DrawOverlayLegend(e.Graphics, imgRect);
+        }
+
+        private void DrawSteeringOverlay(Graphics g, Rectangle imgRect, double angle, Color color, float width, string label)
+        {
+            (PointF start, PointF end) = CalculateSteeringLine(imgRect, angle);
+
+            using Pen shadowPen = new Pen(Color.FromArgb(130, 0, 0, 0), width + 3)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+
+            using Pen mainPen = new Pen(color, width)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+
+            g.DrawLine(shadowPen, start.X + 2, start.Y + 2, end.X + 2, end.Y + 2);
+            g.DrawLine(mainPen, start, end);
+
+            using Font font = new Font("맑은 고딕", 10, FontStyle.Bold);
+            using SolidBrush brush = new SolidBrush(color);
+
+            g.DrawString($"{label}: {angle:F3}", font, brush, end.X + 8, end.Y - 10);
+        }
+
+        private void DrawSteeringGapArea(Graphics g, Rectangle imgRect, double actualAngle, double predictedAngle)
+        {
+            (PointF startA, PointF endA) = CalculateSteeringLine(imgRect, actualAngle);
+            (PointF startP, PointF endP) = CalculateSteeringLine(imgRect, predictedAngle);
+
+            double error = Math.Abs(actualAngle - predictedAngle);
+            Color errorColor = GetErrorColor(error);
+
+            using GraphicsPath path = new GraphicsPath();
+            path.AddPolygon(new PointF[]
+            {
+                startA,
+                endA,
+                endP
+            });
+
+            using SolidBrush brush = new SolidBrush(Color.FromArgb(80, errorColor));
+            g.FillPath(brush, path);
+        }
+
+        private (PointF start, PointF end) CalculateSteeringLine(Rectangle imgRect, double angle)
+        {
+            double clamped = Math.Max(-1.0, Math.Min(1.0, angle));
+
+            float startX = imgRect.Left + imgRect.Width / 2f;
+            float startY = imgRect.Bottom - 16f;
+
+            float lineLength = imgRect.Height * 0.45f;
+            float maxHorizontalShift = imgRect.Width * 0.30f;
+
+            float endX = startX + (float)(clamped * maxHorizontalShift);
+            float endY = startY - lineLength;
+
+            return (new PointF(startX, startY), new PointF(endX, endY));
+        }
+
+        private void DrawCenterGuideLine(Graphics g, Rectangle imgRect)
+        {
+            (PointF start, PointF end) = CalculateSteeringLine(imgRect, 0);
+
+            using Pen guidePen = new Pen(Color.FromArgb(180, 255, 255, 255), 2f)
+            {
+                DashStyle = DashStyle.Dash,
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+
+            g.DrawLine(guidePen, start, end);
+        }
+
+        private void DrawThrottleBars(Graphics g, Rectangle imgRect)
+        {
+            if (!overlayActualThrottle.HasValue && !overlayPredictedThrottle.HasValue)
+                return;
+
+            int panelX = imgRect.Left + 12;
+            int panelY = imgRect.Bottom - 82;
+            int panelW = 260;
+            int panelH = 66;
+
+            using SolidBrush bg = new SolidBrush(Color.FromArgb(145, 20, 20, 20));
+            using Pen border = new Pen(Color.FromArgb(190, 255, 255, 255), 1);
+
+            g.FillRectangle(bg, panelX, panelY, panelW, panelH);
+            g.DrawRectangle(border, panelX, panelY, panelW, panelH);
+
+            using Font font = new Font("맑은 고딕", 8, FontStyle.Bold);
+            using SolidBrush white = new SolidBrush(Color.White);
+
+            g.DrawString("Throttle", font, white, panelX + 10, panelY + 6);
+
+            if (overlayActualThrottle.HasValue)
+            {
+                DrawSingleThrottleBar(
+                    g,
+                    panelX + 85,
+                    panelY + 27,
+                    150,
+                    10,
+                    overlayActualThrottle.Value,
+                    Color.DeepSkyBlue,
+                    "A"
+                );
+            }
+
+            if (overlayPredictedThrottle.HasValue)
+            {
+                DrawSingleThrottleBar(
+                    g,
+                    panelX + 85,
+                    panelY + 47,
+                    150,
+                    10,
+                    overlayPredictedThrottle.Value,
+                    Color.LimeGreen,
+                    "P"
+                );
+            }
+        }
+
+        private void DrawSingleThrottleBar(Graphics g, int x, int y, int w, int h, double value, Color color, string label)
+        {
+            double clamped = Math.Max(0.0, Math.Min(1.0, value));
+            int filled = (int)(w * clamped);
+
+            using Font font = new Font("맑은 고딕", 8, FontStyle.Bold);
+            using SolidBrush textBrush = new SolidBrush(Color.White);
+            using SolidBrush fillBrush = new SolidBrush(color);
+            using SolidBrush emptyBrush = new SolidBrush(Color.FromArgb(80, 255, 255, 255));
+            using Pen borderPen = new Pen(Color.FromArgb(180, 255, 255, 255), 1);
+
+            g.DrawString(label, font, textBrush, x - 22, y - 5);
+            g.FillRectangle(emptyBrush, x, y, w, h);
+            g.FillRectangle(fillBrush, x, y, filled, h);
+            g.DrawRectangle(borderPen, x, y, w, h);
+            g.DrawString(value.ToString("F3"), font, textBrush, x + w + 8, y - 5);
+        }
+
+        private void DrawErrorPanel(Graphics g, Rectangle imgRect)
+        {
+            if (!overlayActualAngle.HasValue || !overlayPredictedAngle.HasValue)
+                return;
+
+            double error = Math.Abs(overlayActualAngle.Value - overlayPredictedAngle.Value);
+            Color errorColor = GetErrorColor(error);
+            string msg = GetErrorMessage(error);
+
+            int panelW = 230;
+            int panelH = 72;
+            int panelX = imgRect.Right - panelW - 12;
+            int panelY = imgRect.Top + 12;
+
+            using SolidBrush bg = new SolidBrush(Color.FromArgb(150, 20, 20, 20));
+            using Pen border = new Pen(errorColor, 2);
+            using Font titleFont = new Font("맑은 고딕", 9, FontStyle.Bold);
+            using Font valueFont = new Font("맑은 고딕", 11, FontStyle.Bold);
+            using SolidBrush white = new SolidBrush(Color.White);
+            using SolidBrush colorBrush = new SolidBrush(errorColor);
+
+            g.FillRectangle(bg, panelX, panelY, panelW, panelH);
+            g.DrawRectangle(border, panelX, panelY, panelW, panelH);
+
+            g.DrawString("Angle Error", titleFont, white, panelX + 10, panelY + 8);
+            g.DrawString(error.ToString("F4"), valueFont, colorBrush, panelX + 10, panelY + 31);
+            g.DrawString(msg, titleFont, colorBrush, panelX + 100, panelY + 34);
+        }
+
+        private void DrawOverlayLegend(Graphics g, Rectangle imgRect)
+        {
+            int boxX = imgRect.Left + 12;
+            int boxY = imgRect.Top + 12;
+            int boxW = 210;
+            int boxH = 78;
+
+            using SolidBrush bg = new SolidBrush(Color.FromArgb(145, 20, 20, 20));
+            using Pen border = new Pen(Color.FromArgb(180, 255, 255, 255), 1);
+
+            g.FillRectangle(bg, boxX, boxY, boxW, boxH);
+            g.DrawRectangle(border, boxX, boxY, boxW, boxH);
+
+            using Font font = new Font("맑은 고딕", 8, FontStyle.Bold);
+            using SolidBrush whiteBrush = new SolidBrush(Color.White);
+            using SolidBrush actualBrush = new SolidBrush(Color.DeepSkyBlue);
+            using SolidBrush predBrush = new SolidBrush(Color.LimeGreen);
+            using SolidBrush gapBrush = new SolidBrush(Color.Gold);
+
+            g.DrawString("Guide: white dashed", font, whiteBrush, boxX + 10, boxY + 7);
+            g.DrawString("● Actual Angle", font, actualBrush, boxX + 10, boxY + 25);
+            g.DrawString("● Predicted Angle", font, predBrush, boxX + 10, boxY + 43);
+            g.DrawString("■ Error Area", font, gapBrush, boxX + 10, boxY + 61);
+        }
+
+        private Rectangle GetZoomedImageRectangle(PictureBox pb)
+        {
+            if (pb.Image == null)
+                return Rectangle.Empty;
+
+            if (pb.ClientSize.Width <= 0 || pb.ClientSize.Height <= 0)
+                return Rectangle.Empty;
+
+            float imageRatio = (float)pb.Image.Width / pb.Image.Height;
+            float boxRatio = (float)pb.ClientSize.Width / pb.ClientSize.Height;
+
+            int drawWidth;
+            int drawHeight;
+            int drawX;
+            int drawY;
+
+            if (imageRatio > boxRatio)
+            {
+                drawWidth = pb.ClientSize.Width;
+                drawHeight = (int)(pb.ClientSize.Width / imageRatio);
+                drawX = 0;
+                drawY = (pb.ClientSize.Height - drawHeight) / 2;
+            }
+            else
+            {
+                drawHeight = pb.ClientSize.Height;
+                drawWidth = (int)(pb.ClientSize.Height * imageRatio);
+                drawX = (pb.ClientSize.Width - drawWidth) / 2;
+                drawY = 0;
+            }
+
+            return new Rectangle(drawX, drawY, drawWidth, drawHeight);
+        }
+
+        private Color GetErrorColor(double error)
+        {
+            if (error <= 0.05)
+                return Color.LimeGreen;
+
+            if (error <= 0.15)
+                return Color.Orange;
+
+            return Color.Red;
+        }
+
+        private string GetErrorMessage(double error)
+        {
+            if (error <= 0.05)
+                return "Good";
+
+            if (error <= 0.15)
+                return "Warning";
+
+            return "High Error";
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
