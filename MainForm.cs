@@ -120,12 +120,32 @@ namespace DonkeycarManager
             if (visibleFrames.Count == 0)
                 return;
 
+            // 모든 프레임이 다 선택 상태라면 (필터링되어 볼 이미지가 없다면) 자동재생 중지
+            if (lstCleanerFrames.SelectedIndices.Count == visibleFrames.Count)
+            {
+                autoPlayTimer.Enabled = false;
+                btnAutoPlay.Text = "자동 재생";
+                AppendLog("모든 프레임이 필터링에 걸려 자동 재생을 중지합니다.");
+                return;
+            }
+
             int next = currentIndex + 1;
+            int maxChecks = visibleFrames.Count; // 무한루프 방지
 
-            if (next >= visibleFrames.Count)
-                next = 0;
+            for (int i = 0; i < maxChecks; i++)
+            {
+                if (next >= visibleFrames.Count)
+                    next = 0;
 
-            ShowFrame(next);
+                // 백업/삭제 대상인 프레임(선택 목록에 포함된 프레임)이 아니면 해당 프레임 재생
+                if (!lstCleanerFrames.SelectedIndices.Contains(next))
+                {
+                    ShowFrame(next);
+                    return;
+                }
+
+                next++;
+            }
         }
 
         private void btnApplyFilter_Click(object? sender, EventArgs e)
@@ -154,42 +174,94 @@ namespace DonkeycarManager
 
         private void btnDeleteFrame_Click(object? sender, EventArgs e)
         {
-            if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
+            List<DonkeyFrame> framesToDelete = new List<DonkeyFrame>();
+
+            // Cleaner 리스트에서 다중 선택된 항목이 있으면 그 항목들을 삭제 대상에 추가
+            if (lstCleanerFrames.SelectedIndices.Count > 0)
+            {
+                foreach (int index in lstCleanerFrames.SelectedIndices)
+                {
+                    framesToDelete.Add(visibleFrames[index]);
+                }
+            }
+            // 다중 선택된게 없다면 현재 선택(currentIndex) 프레임 추가
+            else if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+            {
+                framesToDelete.Add(visibleFrames[currentIndex]);
+            }
+
+            if (framesToDelete.Count == 0)
             {
                 MessageBox.Show("삭제할 프레임을 먼저 선택하세요.");
                 return;
             }
 
-            DonkeyFrame frame = visibleFrames[currentIndex];
-
-            DialogResult result = MessageBox.Show(
-                $"현재 프레임을 삭제할까요?\n\nIndex: {frame.Index}\nImage: {frame.ImageFileName}",
-                "삭제 확인",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning
-            );
-
-            if (result != DialogResult.Yes)
-                return;
-
             try
             {
                 DisposeCurrentImages();
 
-                string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+                // backup 폴더 생성
+                string backupFolderPath = Path.Combine(dataFolderPath, "backup");
+                if (!Directory.Exists(backupFolderPath))
+                {
+                    Directory.CreateDirectory(backupFolderPath);
+                }
 
-                if (File.Exists(imagePath))
-                    File.Delete(imagePath);
+                // backup/images 서브 폴더 생성 (이미지를 백업할 폴더)
+                string backupImagesFolderPath = Path.Combine(backupFolderPath, "images");
+                if (!Directory.Exists(backupImagesFolderPath))
+                {
+                    Directory.CreateDirectory(backupImagesFolderPath);
+                }
 
-                allFrames.RemoveAll(f =>
-                    f.Index == frame.Index &&
-                    f.ImageFileName == frame.ImageFileName
-                );
+                // 삭제 작업 전에 모든 카탈로그 파일들을 backup 루트 폴더로 복사
+                string[] catalogFiles = Directory.GetFiles(dataFolderPath, "catalog_*.catalog");
+                foreach (string catalogFile in catalogFiles)
+                {
+                    string fileName = Path.GetFileName(catalogFile);
+                    string backupCatalogPath = Path.Combine(backupFolderPath, fileName);
+                    
+                    // 원본 카탈로그를 백업 폴더로 복사 (이미 있으면 덮어쓰기)
+                    File.Copy(catalogFile, backupCatalogPath, true);
+
+                    // 향후 SaveCatalog()가 전체 데이터를 catalog_0.catalog 하나로 통합하여 저장하므로,
+                    // 다음 로드 시 데이터가 중복으로 나오는 것을 방지하기 위해 원본 폴더의 나머지 분할 파일들은 삭제 (백업에 남아있음)
+                    if (fileName.ToLower() != "catalog_0.catalog")
+                    {
+                        File.Delete(catalogFile);
+                    }
+                }
+
+                int deletedCount = 0;
+                foreach (var frame in framesToDelete)
+                {
+                    string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+                    string backupImagePath = Path.Combine(backupImagesFolderPath, frame.ImageFileName);
+
+                    // 이미지가 존재하면 백업/images 폴더로 이동 (삭제된 사진 보관)
+                    if (File.Exists(imagePath))
+                    {
+                        // 백업 이미지 폴더에 이미 동일한 이름의 파일이 있다면 덮어쓰기
+                        if (File.Exists(backupImagePath))
+                        {
+                            File.Delete(backupImagePath);
+                        }
+                        File.Move(imagePath, backupImagePath);
+                    }
+
+                    allFrames.RemoveAll(f =>
+                        f.Index == frame.Index &&
+                        f.ImageFileName == frame.ImageFileName
+                    );
+                    
+                    deletedCount++;
+                }
 
                 SaveCatalog();
-                ApplyFilter();
+                // 갱신을 위해 데이터 목록 필터 다시 적용
+                ApplyFilter(); 
 
-                AppendLog($"삭제 완료: index={frame.Index}, image={frame.ImageFileName}");
+                AppendLog($"삭제 완료: {deletedCount}개의 프레임이 삭제되었습니다.");
             }
             catch (Exception ex)
             {
@@ -461,8 +533,10 @@ namespace DonkeycarManager
             if (lstFrames.SelectedIndex != index)
                 lstFrames.SelectedIndex = index;
 
-            if (lstCleanerFrames.SelectedIndex != index)
-                lstCleanerFrames.SelectedIndex = index;
+            // 자동 재생 및 Viewer 조작 시 Cleaner의 다중 선택이 풀리거나 유지·누적되는 문제 방지
+            // lstCleanerFrames 리스트의 선택을 강제 동기화하지 않도록 주석(혹은 삭제) 처리합니다.
+            // if (lstCleanerFrames.SelectedIndex != index)
+            //     lstCleanerFrames.SelectedIndex = index;
 
             isUpdatingSelection = false;
         }
@@ -496,28 +570,66 @@ namespace DonkeycarManager
 
         private void ApplyFilter()
         {
-            IEnumerable<DonkeyFrame> query = allFrames;
-
-            if (chkThrottlePositive.Checked)
-                query = query.Where(f => f.Throttle > 0);
-
-            if (chkExcludeZeroAngle.Checked)
-                query = query.Where(f => Math.Abs(f.Angle) > 0.000001);
-
-            if (chkStopDataOnly.Checked)
-                query = query.Where(f => Math.Abs(f.Throttle) <= 0.000001);
-
-            visibleFrames = query.ToList();
+            visibleFrames = allFrames.ToList();
 
             BindFrameLists();
             SetupTrackBar();
 
-            if (visibleFrames.Count > 0)
-                ShowFrame(0);
-            else
-                ClearViewer();
+            isUpdatingSelection = true;
+            lstCleanerFrames.BeginUpdate();
 
-            AppendLog($"필터 적용 후 {visibleFrames.Count}개 프레임");
+            // 단순히 클릭만으로도 선택/해제를 토글할 수 있는 MultiSimple 모드 사용
+            lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
+            lstCleanerFrames.ClearSelected();
+
+            int count = 0;
+            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
+
+            if (hasFilter)
+            {
+                for (int i = 0; i < visibleFrames.Count; i++)
+                {
+                    DonkeyFrame f = visibleFrames[i];
+                    bool satisfy = true;
+
+                    if (chkThrottlePositive.Checked && f.Throttle <= 0)
+                        satisfy = false;
+
+                    if (chkExcludeZeroAngle.Checked && Math.Abs(f.Angle) <= 0.000001)
+                        satisfy = false;
+
+                    if (chkStopDataOnly.Checked && Math.Abs(f.Throttle) > 0.000001)
+                        satisfy = false;
+
+                    // 조건을 만족하지 못하면 해당 항목을 선택
+                    if (!satisfy)
+                    {
+                        lstCleanerFrames.SetSelected(i, true);
+                        count++;
+                    }
+                }
+            }
+
+            lstCleanerFrames.EndUpdate();
+            isUpdatingSelection = false;
+
+            if (visibleFrames.Count > 0)
+            {
+                // 선택된 항목이 있으면 가장 위 선택 항목을 보여줌
+                if (lstCleanerFrames.SelectedIndex >= 0)
+                    ShowFrame(lstCleanerFrames.SelectedIndex);
+                else
+                    ShowFrame(0);
+            }
+            else
+            {
+                ClearViewer();
+            }
+
+            if (hasFilter)
+                AppendLog($"필터 적용: 조건 불만족 {count}개 프레임 선택됨");
+            else
+                AppendLog("필터 적용: 선택된 조건 없음");
         }
 
         private void ClearViewer()
