@@ -379,23 +379,7 @@ namespace DonkeycarManager
 
             try
             {
-                foreach (string line in File.ReadLines(catalogFilePath))
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-
-                    try
-                    {
-                        DonkeyFrame? frame = JsonSerializer.Deserialize<DonkeyFrame>(line);
-
-                        if (frame != null && !string.IsNullOrWhiteSpace(frame.ImageFileName))
-                            allFrames.Add(frame);
-                    }
-                    catch
-                    {
-                        AppendLog("catalog 파싱 실패 줄 발견");
-                    }
-                }
+                allFrames = CatalogParser.Load(catalogFilePath);
 
                 visibleFrames = allFrames.ToList();
 
@@ -562,28 +546,8 @@ namespace DonkeycarManager
 
         private void SaveCatalog()
         {
-            List<string> lines = new List<string>();
-
-            foreach (DonkeyFrame frame in allFrames)
-            {
-                Dictionary<string, object?> obj = new Dictionary<string, object?>
-                {
-                    ["_index"] = frame.Index,
-                    ["_session_id"] = frame.SessionId,
-                    ["_timestamp_ms"] = frame.TimestampMs,
-                    ["cam/image_array"] = frame.ImageFileName,
-                    ["user/angle"] = frame.Angle,
-                    ["user/mode"] = frame.Mode,
-                    ["user/throttle"] = frame.Throttle
-                };
-
-                string json = JsonSerializer.Serialize(obj);
-                lines.Add(json);
-            }
-
-            File.WriteAllLines(catalogFilePath, lines);
+            CatalogParser.Save(catalogFilePath, allFrames);
         }
-
         private void UpdateModelStatus()
         {
             string mycarPath = txtMycarPath.Text.Trim();
