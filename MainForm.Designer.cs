@@ -59,6 +59,10 @@ namespace DonkeycarManager
         private PictureBox picPilotTest;
         private Label lblActualAngle;
         private Label lblPredictedAngle;
+        private Label lblActualThrottle;
+        private Label lblPredictedThrottle;
+        private Label lblAngleError;
+        private Label lblPilotWarning;
         private Label lblPilotNote;
 
         private TextBox txtLog;
@@ -132,6 +136,10 @@ namespace DonkeycarManager
             picPilotTest = new PictureBox();
             lblActualAngle = new Label();
             lblPredictedAngle = new Label();
+            lblActualThrottle = new Label();
+            lblPredictedThrottle = new Label();
+            lblAngleError = new Label();
+            lblPilotWarning = new Label();
             lblPilotNote = new Label();
 
             txtLog = new TextBox();
@@ -150,7 +158,6 @@ namespace DonkeycarManager
 
             SuspendLayout();
 
-            // MainForm
             AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.WhiteSmoke;
@@ -161,7 +168,6 @@ namespace DonkeycarManager
             Text = "Donkeycar Manager";
             WindowState = FormWindowState.Maximized;
 
-            // tabMain
             tabMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tabMain.Controls.Add(tabViewer);
             tabMain.Controls.Add(tabCleaner);
@@ -173,7 +179,6 @@ namespace DonkeycarManager
             tabMain.SelectedIndex = 0;
             tabMain.Size = new Size(1400, 720);
 
-            // tabViewer
             tabViewer.BackColor = Color.WhiteSmoke;
             tabViewer.Controls.Add(lblTitleViewer);
             tabViewer.Controls.Add(btnOpenDataFolder);
@@ -193,7 +198,6 @@ namespace DonkeycarManager
             tabViewer.Size = new Size(1392, 684);
             tabViewer.Text = "Viewer - 데이터 확인";
 
-            // lblTitleViewer
             lblTitleViewer.AutoSize = true;
             lblTitleViewer.Font = new Font("맑은 고딕", 22F, FontStyle.Bold);
             lblTitleViewer.ForeColor = Color.FromArgb(30, 90, 160);
@@ -202,7 +206,6 @@ namespace DonkeycarManager
             lblTitleViewer.Size = new Size(421, 50);
             lblTitleViewer.Text = "Donkeycar Tub Viewer";
 
-            // buttons viewer
             btnOpenDataFolder.Location = new Point(20, 82);
             btnOpenDataFolder.Name = "btnOpenDataFolder";
             btnOpenDataFolder.Size = new Size(160, 38);
@@ -228,7 +231,6 @@ namespace DonkeycarManager
             lblDataPath.Size = new Size(112, 23);
             lblDataPath.Text = "Data Folder: -";
 
-            // picFrame
             picFrame.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             picFrame.BackColor = Color.Black;
             picFrame.BorderStyle = BorderStyle.FixedSingle;
@@ -238,7 +240,6 @@ namespace DonkeycarManager
             picFrame.SizeMode = PictureBoxSizeMode.Zoom;
             picFrame.TabStop = false;
 
-            // lstFrames
             lstFrames.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
             lstFrames.Font = new Font("Consolas", 9F);
             lstFrames.HorizontalScrollbar = true;
@@ -247,7 +248,6 @@ namespace DonkeycarManager
             lstFrames.Name = "lstFrames";
             lstFrames.Size = new Size(500, 390);
 
-            // labels viewer
             lblFrameInfo.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblFrameInfo.AutoSize = true;
             lblFrameInfo.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
@@ -283,7 +283,6 @@ namespace DonkeycarManager
             trbFrame.Size = new Size(1350, 56);
             trbFrame.TickStyle = TickStyle.None;
 
-            // tabCleaner
             tabCleaner.BackColor = Color.WhiteSmoke;
             tabCleaner.Controls.Add(lblTitleCleaner);
             tabCleaner.Controls.Add(grpFilters);
@@ -376,7 +375,6 @@ namespace DonkeycarManager
             lblCleanerInfo.Name = "lblCleanerInfo";
             lblCleanerInfo.Text = "선택 프레임 정보: -";
 
-            // tabTrainer
             tabTrainer.BackColor = Color.WhiteSmoke;
             tabTrainer.Controls.Add(lblTitleTrainer);
             tabTrainer.Controls.Add(lblMycarPath);
@@ -464,7 +462,6 @@ namespace DonkeycarManager
                 "python train.py --tub ./data --model ./models/mypilot.h5\n\n" +
                 "C#은 AI를 직접 학습하지 않고 Python 외부 프로세스를 실행합니다.";
 
-            // tabPilotTest
             tabPilotTest.BackColor = Color.WhiteSmoke;
             tabPilotTest.Controls.Add(lblTitlePilot);
             tabPilotTest.Controls.Add(lblModelPath);
@@ -474,6 +471,10 @@ namespace DonkeycarManager
             tabPilotTest.Controls.Add(picPilotTest);
             tabPilotTest.Controls.Add(lblActualAngle);
             tabPilotTest.Controls.Add(lblPredictedAngle);
+            tabPilotTest.Controls.Add(lblActualThrottle);
+            tabPilotTest.Controls.Add(lblPredictedThrottle);
+            tabPilotTest.Controls.Add(lblAngleError);
+            tabPilotTest.Controls.Add(lblPilotWarning);
             tabPilotTest.Controls.Add(lblPilotNote);
             tabPilotTest.Location = new Point(4, 32);
             tabPilotTest.Name = "tabPilotTest";
@@ -503,7 +504,7 @@ namespace DonkeycarManager
 
             btnRunPilotTest.Location = new Point(120, 145);
             btnRunPilotTest.Name = "btnRunPilotTest";
-            btnRunPilotTest.Size = new Size(240, 40);
+            btnRunPilotTest.Size = new Size(250, 42);
             btnRunPilotTest.Text = "현재 이미지로 예측 테스트";
             btnRunPilotTest.UseVisualStyleBackColor = true;
 
@@ -512,7 +513,7 @@ namespace DonkeycarManager
             picPilotTest.BorderStyle = BorderStyle.FixedSingle;
             picPilotTest.Location = new Point(30, 220);
             picPilotTest.Name = "picPilotTest";
-            picPilotTest.Size = new Size(640, 360);
+            picPilotTest.Size = new Size(650, 360);
             picPilotTest.SizeMode = PictureBoxSizeMode.Zoom;
             picPilotTest.TabStop = false;
 
@@ -523,19 +524,41 @@ namespace DonkeycarManager
 
             lblPredictedAngle.AutoSize = true;
             lblPredictedAngle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            lblPredictedAngle.Location = new Point(710, 275);
+            lblPredictedAngle.Location = new Point(710, 270);
             lblPredictedAngle.Text = "예측 Angle: -";
 
-            lblPilotNote.ForeColor = Color.DimGray;
-            lblPilotNote.Location = new Point(710, 335);
-            lblPilotNote.Name = "lblPilotNote";
-            lblPilotNote.Size = new Size(520, 180);
-            lblPilotNote.Text =
-                "공식 Donkey UI의 Pilot Arena 구조를 참고한 선택 기능 영역입니다.\n" +
-                "실제 예측 실행은 Python 모델 테스트 코드와 연동해야 합니다.\n" +
-                "현재 버전은 UI 자리와 로그 출력까지 제공합니다.";
+            lblActualThrottle.AutoSize = true;
+            lblActualThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblActualThrottle.Location = new Point(710, 320);
+            lblActualThrottle.Text = "실제 Throttle: -";
 
-            // txtLog
+            lblPredictedThrottle.AutoSize = true;
+            lblPredictedThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblPredictedThrottle.Location = new Point(710, 355);
+            lblPredictedThrottle.Text = "예측 Throttle: -";
+
+            lblAngleError.AutoSize = true;
+            lblAngleError.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
+            lblAngleError.Location = new Point(710, 405);
+            lblAngleError.Text = "Angle Error: -";
+
+            lblPilotWarning.AutoSize = true;
+            lblPilotWarning.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
+            lblPilotWarning.ForeColor = Color.DimGray;
+            lblPilotWarning.Location = new Point(710, 450);
+            lblPilotWarning.Text = "판정: -";
+
+            lblPilotNote.ForeColor = Color.DimGray;
+            lblPilotNote.Location = new Point(710, 500);
+            lblPilotNote.Name = "lblPilotNote";
+            lblPilotNote.Size = new Size(560, 140);
+            lblPilotNote.Text =
+                "파란선: 실제 angle\n" +
+                "초록선: 예측 angle\n" +
+                "노란 반투명 영역: 실제/예측 차이\n" +
+                "하단 막대: 실제/예측 throttle 비교\n" +
+                "오차가 클수록 경고 색상이 빨간색으로 표시됩니다.";
+
             txtLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtLog.Font = new Font("Consolas", 9F);
             txtLog.Location = new Point(0, 725);
