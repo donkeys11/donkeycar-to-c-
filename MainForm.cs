@@ -230,6 +230,24 @@ namespace DonkeycarManager
             string pythonExe = txtPythonExe.Text.Trim();
             string trainArgs = txtTrainArgs.Text.Trim();
 
+            // 학습마다 새로운 모델 파일이 생성되도록 타임스탬프 추가
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            if (trainArgs.Contains("--model"))
+            {
+                trainArgs = System.Text.RegularExpressions.Regex.Replace(
+                    trainArgs,
+                    @"--model\s+[^\s]+",
+                    $"--model ./models/mypilot_{timestamp}.h5"
+                );
+            }
+            else
+            {
+                trainArgs += $" --model ./models/mypilot_{timestamp}.h5";
+            }
+
+            txtTrainArgs.Text = trainArgs;
+            txtModelPath.Text = $"~/mycar/models/mypilot_{timestamp}.h5";
+
             if (string.IsNullOrWhiteSpace(mycarPath))
             {
                 MessageBox.Show("mycar 경로를 입력하세요.\n예: ~/mycar");
