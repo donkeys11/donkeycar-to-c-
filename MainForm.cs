@@ -35,6 +35,9 @@ namespace DonkeycarManager
         // 선택 구간 시작 인덱스
         private int selectionStartIndex = -1;
 
+        // 사용자가 타임라인 패널을 클릭(스크롤 포함) 중인지 여부
+        private bool isTimelineScrolling = false;
+
         public MainForm()
         {
             InitializeComponent();
@@ -42,13 +45,24 @@ namespace DonkeycarManager
             lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
             btnSetStart.Click += btnSetStart_Click;
             btnSetEnd.Click += btnSetEnd_Click;
+            // flpTimeline 영역의 마우스 클릭 상태 추적
+            flpTimeline.MouseDown += (s, e) => isTimelineScrolling = true;
+            flpTimeline.MouseUp += (s, e) => isTimelineScrolling = false;
+
+            // 만약 마우스가 패널 바깥으로 나간 상태에서 떼어지는 경우를 대비
+            flpTimeline.MouseLeave += (s, e) =>
+            {
+                // 마우스 왼쪽 버튼을 누른 채로 밖으로 나간 게 아니라면 해제
+                if (Control.MouseButtons != MouseButtons.Left)
+                    isTimelineScrolling = false;
+            };
 
             txtPythonExe.Text = "python";
             txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
-
+            
             autoPlayTimer.Interval = 150;
             autoPlayTimer.Tick += AutoPlayTimer_Tick;
-
+            
             AppendLog("프로그램 실행 완료");
         }
 
@@ -654,14 +668,23 @@ namespace DonkeycarManager
                 picThumb.Paint += (s, e) =>
                 {
                     PictureBox pic = (PictureBox)s!;
-                    // 이 썸네일이 현재 재생 중인 인덱스라면
-                    if ((int)pic.Tag == currentIndex)
+                    int picIndex = (int)pic.Tag;
+
+                    // 1. 현재 재생 중인 인덱스 (기존 하얀색 테두리)
+                    if (picIndex == currentIndex)
                     {
-                        // 두께 4픽셀짜리 하얀 테두리(틀)를 그림의 가장자리에 그립니다.
-                        // (안쪽 이미지를 절대 덮지 않고 테두리만 두껕게 설정)
                         using (Pen pen = new Pen(Color.White, 4))
                         {
-                            // 렌더링 오차 방지를 위해 1픽셀 안쪽으로 당겨서 그립니다.
+                            e.Graphics.DrawRectangle(pen, new Rectangle(1, 1, pic.Width - 3, pic.Height - 3));
+                        }
+                    }
+
+                    // 2. [추가] '구간 시작'으로 짚어둔 인덱스 (눈에 확 띄는 초록색 테두리)
+                    // 덮어씌워서 그리므로 현재 뷰어 위치와 겹쳐도 초록색으로 보입니다.
+                    if (picIndex == selectionStartIndex)
+                    {
+                        using (Pen pen = new Pen(Color.LimeGreen, 4))
+                        {
                             e.Graphics.DrawRectangle(pen, new Rectangle(1, 1, pic.Width - 3, pic.Height - 3));
                         }
                     }
@@ -860,7 +883,6 @@ namespace DonkeycarManager
             bool needToScroll = false;
             PictureBox? targetPic = null;
 
-            // 1. 모든 썸네일 재갱신(테두리 다시 그리기) 및 현재 썸네일 찾기
             foreach (Control ctrl in flpTimeline.Controls)
             {
                 if (ctrl is PictureBox pic)
@@ -876,35 +898,19 @@ namespace DonkeycarManager
 
             if (targetPic != null)
             {
-                // [정확한 시야 계산법]
-                // targetPic.Bounds 영역이 현재 FlowLayoutPanel의 가시 영역(ClientRectangle) 안에 들어오도록 
-                // 강제로 계산된 절대 좌표(flpTimeline 안에서 생성된 진짜 원래 위치)를 뽑아봅니다.
-                
-                // 컨트롤의 원래 X 위치(스크롤 안 했을 때 기준)는 대략 인덱스를 통해 알 수 있습니다.
-                // Control의 Margin, Padding, Width를 모두 더한 한 칸의 실질적 너비 (예: 80(폭) + 2(왼쪽여백) + 2(오른쪽여백) = 84)
                 int itemWidth = targetPic.Width + targetPic.Margin.Horizontal; 
-
-                // 현재 targetPic의 절대 X 시작 좌표 (0부터 시작)
                 int absoluteX = index * itemWidth;
-
-                // 현재 스크롤 막대가 위치한 X값 (항상 양수로 가져옴)
                 int currentScrollX = Math.Abs(flpTimeline.AutoScrollPosition.X);
-                
-                // 화면의 가로 폭
                 int viewWidth = flpTimeline.ClientSize.Width;
 
-                // 만약 사진의 오른쪽 끝(absoluteX + itemWidth)이 화면 오른쪽 밖으로 나갔거나,
-                // 사진의 왼쪽 시작(absoluteX)이 화면 왼쪽 밖(과거)으로 나갔다면!
                 if (absoluteX + itemWidth > currentScrollX + viewWidth || absoluteX < currentScrollX)
                 {
                     needToScroll = true;
                 }
 
-                // 스크롤해야 한다면, 이 사진이 화면의 맨 왼쪽(0 지점)에 오도록 스크롤을 점프!
-                if (needToScroll)
+                // [변경됨] 스크롤바를 마우스로 조작 중이지 않을 때만 자동 스크롤 점프 허용
+                if (needToScroll && !isTimelineScrolling)
                 {
-                    // AutoScrollPosition 설정 시 양수로 지정하면 그 지점으로 스크롤이 이동함
-                    // targetPic의 절대 X 좌표(absoluteX)를 스크롤 시작점으로 줌
                     flpTimeline.AutoScrollPosition = new Point(absoluteX, 0);
                 }
             }
@@ -915,10 +921,14 @@ namespace DonkeycarManager
             if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
             {
                 selectionStartIndex = currentIndex;
-                AppendLog($"구간 시작 프레임이 설정되었습니다: Index {selectionStartIndex}");
+                AppendLog($"[구간 지정] 시작 지점 선택됨: Index {selectionStartIndex}");
                 
+                // 정보 라벨에 피드백 표시 (선택적)
+                lblCleanerInfo.Text = $"▶ 구간 시작 지점 설정됨: {selectionStartIndex}번 프레임";
+
+                // 타임라인을 새로고침하여 초록색 테두리가 즉시 그려지도록 함
+                flpTimeline.Refresh(); 
             }
-            
         }
 
         private void btnSetEnd_Click(object? sender, EventArgs e)
@@ -936,7 +946,6 @@ namespace DonkeycarManager
                 int start = Math.Min(selectionStartIndex, selectionEndIndex);
                 int end = Math.Max(selectionStartIndex, selectionEndIndex);
 
-                // UI 갱신 플래그를 true로 설정하여 SelectedIndexChanged 이벤트 트리거 방지
                 isUpdatingSelection = true;
                 lstCleanerFrames.BeginUpdate();
 
@@ -948,12 +957,14 @@ namespace DonkeycarManager
                 lstCleanerFrames.EndUpdate();
                 isUpdatingSelection = false;
 
-                AppendLog($"구간 선택 완료: Index {start} ~ {end} (총 {end - start + 1}개 프레임 선택됨)");
+                AppendLog($"[구간 지정] 선택 완료: Index {start} ~ {end} (총 {end - start + 1}개 선택됨)");
+                lblCleanerInfo.Text = $"✔ 구간 다중 선택 완료 ({end - start + 1}개)";
                 
-                // 마지막 번호로 스크롤하여 보이게 함 (선택적)
-                lstCleanerFrames.TopIndex = lstCleanerFrames.SelectedIndex;
-                
+                // 다중 선택 확인 후 시작 인덱스 초기화
                 selectionStartIndex = -1;
+
+                // 초록색 테두리 표시를 지우기 위해 타임라인 갱신
+                flpTimeline.Refresh();
             }
         }
     }
