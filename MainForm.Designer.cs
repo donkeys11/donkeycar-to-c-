@@ -93,6 +93,8 @@ namespace DonkeycarManager
             lblMode = new Label();
             trbFrame = new TrackBar();
             tabCleaner = new TabPage();
+            btnSetEnd = new Button();
+            btnSetStart = new Button();
             flpTimeline = new FlowLayoutPanel();
             lblTitleCleaner = new Label();
             grpFilters = new GroupBox();
@@ -318,6 +320,8 @@ namespace DonkeycarManager
             // tabCleaner
             // 
             tabCleaner.BackColor = Color.WhiteSmoke;
+            tabCleaner.Controls.Add(btnSetEnd);
+            tabCleaner.Controls.Add(btnSetStart);
             tabCleaner.Controls.Add(flpTimeline);
             tabCleaner.Controls.Add(lblTitleCleaner);
             tabCleaner.Controls.Add(grpFilters);
@@ -334,6 +338,28 @@ namespace DonkeycarManager
             tabCleaner.Size = new Size(1081, 510);
             tabCleaner.TabIndex = 1;
             tabCleaner.Text = "Cleaner - 데이터 정리";
+            // 
+            // btnSetEnd
+            // 
+            btnSetEnd.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnSetEnd.BackColor = Color.FromArgb(128, 128, 255);
+            btnSetEnd.Location = new Point(485, 367);
+            btnSetEnd.Name = "btnSetEnd";
+            btnSetEnd.Size = new Size(96, 33);
+            btnSetEnd.TabIndex = 10;
+            btnSetEnd.Text = "구간 종료";
+            btnSetEnd.UseVisualStyleBackColor = false;
+            // 
+            // btnSetStart
+            // 
+            btnSetStart.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnSetStart.BackColor = Color.FromArgb(255, 128, 128);
+            btnSetStart.Location = new Point(383, 367);
+            btnSetStart.Name = "btnSetStart";
+            btnSetStart.Size = new Size(96, 33);
+            btnSetStart.TabIndex = 9;
+            btnSetStart.Text = "구간 시작";
+            btnSetStart.UseVisualStyleBackColor = false;
             // 
             // flpTimeline
             // 
@@ -787,5 +813,7 @@ namespace DonkeycarManager
         }
 
         private FlowLayoutPanel flpTimeline;
+        private Button btnSetEnd;
+        private Button btnSetStart;
     }
 }

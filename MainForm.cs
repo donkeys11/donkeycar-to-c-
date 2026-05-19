@@ -32,10 +32,16 @@ namespace DonkeycarManager
         // 폼의 전역 변수로 강조 렌즈(포커스 링) 역할을 할 Label을 추가합니다.
         private Label? indicatorRing;
 
+        // 선택 구간 시작 인덱스
+        private int selectionStartIndex = -1;
+
         public MainForm()
         {
             InitializeComponent();
             ConnectEvents();
+            lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
+            btnSetStart.Click += btnSetStart_Click;
+            btnSetEnd.Click += btnSetEnd_Click;
 
             txtPythonExe.Text = "python";
             txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
@@ -901,6 +907,53 @@ namespace DonkeycarManager
                     // targetPic의 절대 X 좌표(absoluteX)를 스크롤 시작점으로 줌
                     flpTimeline.AutoScrollPosition = new Point(absoluteX, 0);
                 }
+            }
+        }
+
+        private void btnSetStart_Click(object? sender, EventArgs e)
+        {
+            if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+            {
+                selectionStartIndex = currentIndex;
+                AppendLog($"구간 시작 프레임이 설정되었습니다: Index {selectionStartIndex}");
+                
+            }
+            
+        }
+
+        private void btnSetEnd_Click(object? sender, EventArgs e)
+        {
+            if (selectionStartIndex == -1)
+            {
+                MessageBox.Show("먼저 '구간 시작' 프레임을 설정해 주세요.");
+                return;
+            }
+
+            if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+            {
+                int selectionEndIndex = currentIndex;
+                
+                int start = Math.Min(selectionStartIndex, selectionEndIndex);
+                int end = Math.Max(selectionStartIndex, selectionEndIndex);
+
+                // UI 갱신 플래그를 true로 설정하여 SelectedIndexChanged 이벤트 트리거 방지
+                isUpdatingSelection = true;
+                lstCleanerFrames.BeginUpdate();
+
+                for (int i = start; i <= end; i++)
+                {
+                    lstCleanerFrames.SetSelected(i, true);
+                }
+
+                lstCleanerFrames.EndUpdate();
+                isUpdatingSelection = false;
+
+                AppendLog($"구간 선택 완료: Index {start} ~ {end} (총 {end - start + 1}개 프레임 선택됨)");
+                
+                // 마지막 번호로 스크롤하여 보이게 함 (선택적)
+                lstCleanerFrames.TopIndex = lstCleanerFrames.SelectedIndex;
+                
+                selectionStartIndex = -1;
             }
         }
     }
