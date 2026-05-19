@@ -26,6 +26,12 @@ namespace DonkeycarManager
         private Process? trainProcess;
         private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
 
+        // 폼의 전역 변수로 강조 렌즈(Indicator) 역할을 할 패널을 추가합니다.
+        private Panel? indicatorPanel;
+
+        // 폼의 전역 변수로 강조 렌즈(포커스 링) 역할을 할 Label을 추가합니다.
+        private Label? indicatorRing;
+
         public MainForm()
         {
             InitializeComponent();
@@ -169,6 +175,8 @@ namespace DonkeycarManager
             else
                 ClearViewer();
 
+            PopulateTimeline(); // <--- 여기 추가!
+
             AppendLog("필터 해제: 전체 데이터 표시");
         }
 
@@ -220,7 +228,7 @@ namespace DonkeycarManager
                 {
                     string fileName = Path.GetFileName(catalogFile);
                     string backupCatalogPath = Path.Combine(backupFolderPath, fileName);
-                    
+
                     // 원본 카탈로그를 백업 폴더로 복사 (이미 있으면 덮어쓰기)
                     File.Copy(catalogFile, backupCatalogPath, true);
 
@@ -253,13 +261,13 @@ namespace DonkeycarManager
                         f.Index == frame.Index &&
                         f.ImageFileName == frame.ImageFileName
                     );
-                    
+
                     deletedCount++;
                 }
 
                 SaveCatalog();
                 // 갱신을 위해 데이터 목록 필터 다시 적용
-                ApplyFilter(); 
+                ApplyFilter();
 
                 AppendLog($"삭제 완료: {deletedCount}개의 프레임이 삭제되었습니다.");
             }
@@ -479,6 +487,8 @@ namespace DonkeycarManager
                 else
                     ClearViewer();
 
+                PopulateTimeline(); // <--- 여기 추가!
+
                 AppendLog($"로드 완료: {visibleFrames.Count}개 프레임");
                 UpdateModelStatus();
             }
@@ -555,6 +565,9 @@ namespace DonkeycarManager
             //     lstCleanerFrames.SelectedIndex = index;
 
             isUpdatingSelection = false;
+
+            // [추가] 썸네일 타임라인에서도 지금 위치를 알 수 있도록 쫓아가기
+            HighlightTimelineFrame(index);
         }
 
         private void LoadImageToPictureBox(PictureBox pictureBox, string imagePath)
@@ -581,6 +594,78 @@ namespace DonkeycarManager
             {
                 pictureBox.Image = null;
                 AppendLog("이미지 로드 실패: " + Path.GetFileName(imagePath));
+            }
+        }
+
+        // 썸네일 생성 (이미지 축소 로드)
+        private async Task<Bitmap?> LoadThumbnailAsync(string path, int width, int height)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    if (!File.Exists(path)) return null;
+                    byte[] bytes = File.ReadAllBytes(path);
+                    using MemoryStream ms = new MemoryStream(bytes);
+                    using Bitmap original = new Bitmap(ms);
+                    return new Bitmap(original, new Size(width, height));
+                }
+                catch { return null; }
+            });
+        }
+
+        // 타임라인 그려주기
+        private async void PopulateTimeline()
+        {
+            flpTimeline.SuspendLayout();
+            foreach (Control ctrl in flpTimeline.Controls)
+            {
+                if (ctrl is PictureBox pic && pic.Image != null) pic.Image.Dispose();
+                ctrl.Dispose();
+            }
+            flpTimeline.Controls.Clear();
+            flpTimeline.ResumeLayout();
+
+            for (int i = 0; i < visibleFrames.Count; i++)
+            {
+                int index = i; 
+                DonkeyFrame frame = visibleFrames[i];
+                string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+
+                PictureBox picThumb = new PictureBox
+                {
+                    Width = 80,
+                    Height = 60,
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    BackColor = Color.Black, // 기본 배경 겸 기본 얇은 테두리 역할
+                    Margin = new Padding(2),
+                    Padding = new Padding(2),// 사진과 겉 부분 2픽셀 띄우기
+                    Cursor = Cursors.Hand,
+                    Tag = index 
+                };
+
+                // [추가] 컨트롤 자체가 자신의 겉면에 테두리를 그리도록 하는 이벤트
+                picThumb.Paint += (s, e) =>
+                {
+                    PictureBox pic = (PictureBox)s!;
+                    // 이 썸네일이 현재 재생 중인 인덱스라면
+                    if ((int)pic.Tag == currentIndex)
+                    {
+                        // 두께 4픽셀짜리 하얀 테두리(틀)를 그림의 가장자리에 그립니다.
+                        // (안쪽 이미지를 절대 덮지 않고 테두리만 두껍게 설정)
+                        using (Pen pen = new Pen(Color.White, 4))
+                        {
+                            // 렌더링 오차 방지를 위해 1픽셀 안쪽으로 당겨서 그립니다.
+                            e.Graphics.DrawRectangle(pen, new Rectangle(1, 1, pic.Width - 3, pic.Height - 3));
+                        }
+                    }
+                };
+
+                picThumb.Click += (s, e) => ShowFrame(index);
+                flpTimeline.Controls.Add(picThumb);
+                picThumb.Image = await LoadThumbnailAsync(imagePath, 80, 60);
+
+                if (i % 20 == 0) await Task.Delay(1);
             }
         }
 
@@ -758,6 +843,30 @@ namespace DonkeycarManager
             }
 
             base.OnFormClosed(e);
+        }
+
+        // 현재 인덱스를 눈에 띄게 테두리로 표시하고, 그 위치로 가로 스크롤을 이동시킵니다.
+        private void HighlightTimelineFrame(int index)
+        {
+            if (flpTimeline.Controls.Count <= index) return;
+
+            foreach (Control ctrl in flpTimeline.Controls)
+            {
+                if (ctrl is PictureBox pic)
+                {
+                    int picIndex = (int)pic.Tag;
+
+                    // 1. 빨간 틀을 그리기 위해 각 썸네일에게 스스로 갱신(다시 그리기)을 명령합니다.
+                    // (그러면 아까 만든 picThumb.Paint 이벤트가 발동해서 내 차례면 굵은 하얀 틀을, 아니면 안 그림)
+                    pic.Invalidate();
+
+                    // 2. 현재 재생 중인 썸네일이 나타나면 스크롤이 자동으로 따라가게 함
+                    if (picIndex == index)
+                    {
+                        flpTimeline.ScrollControlIntoView(pic);
+                    }
+                }
+            }
         }
     }
 }
