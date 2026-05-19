@@ -450,7 +450,7 @@ namespace DonkeycarManager
             lstCleanerFrames.Location = new Point(599, 180);
             lstCleanerFrames.Margin = new Padding(2);
             lstCleanerFrames.Name = "lstCleanerFrames";
-            lstCleanerFrames.Size = new Size(446, 256);
+            lstCleanerFrames.Size = new Size(446, 228);
             lstCleanerFrames.TabIndex = 5;
             // 
             // picCleanerPreview

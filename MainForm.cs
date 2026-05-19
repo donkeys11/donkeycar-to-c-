@@ -652,7 +652,7 @@ namespace DonkeycarManager
                     if ((int)pic.Tag == currentIndex)
                     {
                         // 두께 4픽셀짜리 하얀 테두리(틀)를 그림의 가장자리에 그립니다.
-                        // (안쪽 이미지를 절대 덮지 않고 테두리만 두껍게 설정)
+                        // (안쪽 이미지를 절대 덮지 않고 테두리만 두껕게 설정)
                         using (Pen pen = new Pen(Color.White, 4))
                         {
                             // 렌더링 오차 방지를 위해 1픽셀 안쪽으로 당겨서 그립니다.
@@ -763,7 +763,7 @@ namespace DonkeycarManager
 
             foreach (DonkeyFrame frame in allFrames)
             {
-                Dictionary<string, object?> obj = new Dictionary<string, object?>
+                Dictionary<string, object?> obj = new Dictionary<string, object?>()
                 {
                     ["_index"] = frame.Index,
                     ["_session_id"] = frame.SessionId,
@@ -773,6 +773,7 @@ namespace DonkeycarManager
                     ["user/mode"] = frame.Mode,
                     ["user/throttle"] = frame.Throttle
                 };
+                
 
                 string json = JsonSerializer.Serialize(obj);
                 lines.Add(json);
@@ -845,26 +846,60 @@ namespace DonkeycarManager
             base.OnFormClosed(e);
         }
 
-        // 현재 인덱스를 눈에 띄게 테두리로 표시하고, 그 위치로 가로 스크롤을 이동시킵니다.
+        // 현재 인덱스를 눈에 띄게 테두리로 표시하고, 시야를 벗어날 때 페이지를 통째로 넘깁니다.
         private void HighlightTimelineFrame(int index)
         {
             if (flpTimeline.Controls.Count <= index) return;
 
+            bool needToScroll = false;
+            PictureBox? targetPic = null;
+
+            // 1. 모든 썸네일 재갱신(테두리 다시 그리기) 및 현재 썸네일 찾기
             foreach (Control ctrl in flpTimeline.Controls)
             {
                 if (ctrl is PictureBox pic)
                 {
-                    int picIndex = (int)pic.Tag;
-
-                    // 1. 빨간 틀을 그리기 위해 각 썸네일에게 스스로 갱신(다시 그리기)을 명령합니다.
-                    // (그러면 아까 만든 picThumb.Paint 이벤트가 발동해서 내 차례면 굵은 하얀 틀을, 아니면 안 그림)
                     pic.Invalidate();
 
-                    // 2. 현재 재생 중인 썸네일이 나타나면 스크롤이 자동으로 따라가게 함
-                    if (picIndex == index)
+                    if ((int)pic.Tag == index)
                     {
-                        flpTimeline.ScrollControlIntoView(pic);
+                        targetPic = pic;
                     }
+                }
+            }
+
+            if (targetPic != null)
+            {
+                // [정확한 시야 계산법]
+                // targetPic.Bounds 영역이 현재 FlowLayoutPanel의 가시 영역(ClientRectangle) 안에 들어오도록 
+                // 강제로 계산된 절대 좌표(flpTimeline 안에서 생성된 진짜 원래 위치)를 뽑아봅니다.
+                
+                // 컨트롤의 원래 X 위치(스크롤 안 했을 때 기준)는 대략 인덱스를 통해 알 수 있습니다.
+                // Control의 Margin, Padding, Width를 모두 더한 한 칸의 실질적 너비 (예: 80(폭) + 2(왼쪽여백) + 2(오른쪽여백) = 84)
+                int itemWidth = targetPic.Width + targetPic.Margin.Horizontal; 
+
+                // 현재 targetPic의 절대 X 시작 좌표 (0부터 시작)
+                int absoluteX = index * itemWidth;
+
+                // 현재 스크롤 막대가 위치한 X값 (항상 양수로 가져옴)
+                int currentScrollX = Math.Abs(flpTimeline.AutoScrollPosition.X);
+                
+                // 화면의 가로 폭
+                int viewWidth = flpTimeline.ClientSize.Width;
+
+                // 만약 사진의 오른쪽 끝(absoluteX + itemWidth)이 화면 오른쪽 밖으로 나갔거나,
+                // 사진의 왼쪽 시작(absoluteX)이 화면 왼쪽 밖(과거)으로 나갔다면!
+                if (absoluteX + itemWidth > currentScrollX + viewWidth || absoluteX < currentScrollX)
+                {
+                    needToScroll = true;
+                }
+
+                // 스크롤해야 한다면, 이 사진이 화면의 맨 왼쪽(0 지점)에 오도록 스크롤을 점프!
+                if (needToScroll)
+                {
+                    // AutoScrollPosition 설정 시 양수로 지정하면 그 지점으로 스크롤이 이동함
+                    // targetPic의 절대 X 좌표(absoluteX)를 스크롤 시작점으로 줌
+                    flpTimeline.AutoScrollPosition = new Point(absoluteX, 0);
                 }
             }
         }
