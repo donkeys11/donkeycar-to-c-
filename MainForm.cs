@@ -33,6 +33,8 @@ namespace DonkeycarManager
         private const string WslDistroName = "Ubuntu-22.04";
         private const string CondaEnvName = "e2e_env";
 
+        private const int CatalogChunkSize = 1000;
+
         private double? overlayActualAngle = null;
         private double? overlayPredictedAngle = null;
         private double? overlayActualThrottle = null;
@@ -109,19 +111,28 @@ namespace DonkeycarManager
 
             dataFolderPath = dlg.SelectedPath;
             imagesFolderPath = Path.Combine(dataFolderPath, "images");
-            catalogFilePath = Path.Combine(dataFolderPath, "catalog_0.catalog");
 
             if (!Directory.Exists(imagesFolderPath))
             {
-                MessageBox.Show("선택한 폴더 안에 images 폴더가 없습니다.\nmycar 폴더가 아니라 mycar/data 폴더를 선택해야 합니다.");
+                MessageBox.Show(
+                    "선택한 폴더 안에 images 폴더가 없습니다.\n\n" +
+                    "mycar 폴더가 아니라 mycar/data 폴더를 선택해야 합니다."
+                );
                 return;
             }
 
-            if (!File.Exists(catalogFilePath))
+            string[] catalogFiles = GetCatalogFiles();
+
+            if (catalogFiles.Length == 0)
             {
-                MessageBox.Show("선택한 폴더 안에 catalog_0.catalog 파일이 없습니다.");
+                MessageBox.Show(
+                    "선택한 폴더 안에 catalog 파일이 없습니다.\n\n" +
+                    "catalog_0.catalog, catalog_1.catalog 같은 파일이 있어야 합니다."
+                );
                 return;
             }
+
+            catalogFilePath = catalogFiles[0];
 
             txtMycarPath.Text = "~/mycar";
             lblDataPath.Text = "Data Folder: " + dataFolderPath;
@@ -131,9 +142,17 @@ namespace DonkeycarManager
 
         private void btnReload_Click(object? sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(catalogFilePath) || !File.Exists(catalogFilePath))
+            if (string.IsNullOrWhiteSpace(dataFolderPath) || !Directory.Exists(dataFolderPath))
             {
                 MessageBox.Show("먼저 Donkeycar data 폴더를 열어주세요.");
+                return;
+            }
+
+            string[] catalogFiles = GetCatalogFiles();
+
+            if (catalogFiles.Length == 0)
+            {
+                MessageBox.Show("data 폴더 안에 catalog_*.catalog 파일이 없습니다.");
                 return;
             }
 
@@ -870,23 +889,45 @@ namespace DonkeycarManager
 
             try
             {
-                foreach (string line in File.ReadLines(catalogFilePath))
+                string[] catalogFiles = GetCatalogFiles();
+
+                if (catalogFiles.Length == 0)
                 {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
+                    MessageBox.Show("catalog_*.catalog 파일을 찾을 수 없습니다.");
+                    return;
+                }
 
-                    try
-                    {
-                        DonkeyFrame? frame = JsonSerializer.Deserialize<DonkeyFrame>(line);
+                int totalLines = 0;
+                int parseErrorCount = 0;
 
-                        if (frame != null && !string.IsNullOrWhiteSpace(frame.ImageFileName))
-                            allFrames.Add(frame);
-                    }
-                    catch
+                foreach (string catalogPath in catalogFiles)
+                {
+                    foreach (string line in File.ReadLines(catalogPath))
                     {
-                        AppendLog("catalog 파싱 실패 줄 발견");
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+
+                        totalLines++;
+
+                        try
+                        {
+                            DonkeyFrame? frame = JsonSerializer.Deserialize<DonkeyFrame>(line);
+
+                            if (frame != null && !string.IsNullOrWhiteSpace(frame.ImageFileName))
+                                allFrames.Add(frame);
+                        }
+                        catch
+                        {
+                            parseErrorCount++;
+                        }
                     }
                 }
+
+                allFrames = allFrames
+                    .GroupBy(f => MakeFrameKey(f))
+                    .Select(g => g.First())
+                    .OrderBy(f => f.Index)
+                    .ToList();
 
                 visibleFrames = allFrames.ToList();
 
@@ -899,12 +940,71 @@ namespace DonkeycarManager
                 else
                     ClearViewer();
 
-                AppendLog($"로드 완료: {visibleFrames.Count}개 프레임");
+                AppendLog(
+                    $"로드 완료: {visibleFrames.Count}개 프레임 / catalog 파일 {catalogFiles.Length}개 / 전체 줄 {totalLines}개"
+                );
+
+                if (parseErrorCount > 0)
+                    AppendLog($"catalog 파싱 실패 줄: {parseErrorCount}개");
+
                 UpdateModelStatus();
             }
             catch (Exception ex)
             {
                 MessageBox.Show("catalog 파일을 읽는 중 오류가 발생했습니다.\n\n" + ex.Message);
+            }
+        }
+
+        private string[] GetCatalogFiles()
+        {
+            if (string.IsNullOrWhiteSpace(dataFolderPath) || !Directory.Exists(dataFolderPath))
+                return Array.Empty<string>();
+
+            return Directory
+                .GetFiles(dataFolderPath, "catalog_*.catalog")
+                .OrderBy(GetCatalogNumber)
+                .ThenBy(path => path)
+                .ToArray();
+        }
+
+        private int GetCatalogNumber(string catalogPath)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(catalogPath);
+            string[] parts = fileName.Split('_');
+
+            if (parts.Length >= 2 && int.TryParse(parts[parts.Length - 1], out int number))
+                return number;
+
+            return int.MaxValue;
+        }
+
+        private void BackupCatalogFiles()
+        {
+            try
+            {
+                string[] catalogFiles = GetCatalogFiles();
+
+                if (catalogFiles.Length == 0)
+                    return;
+
+                string backupRoot = Path.Combine(dataFolderPath, "catalog_backup");
+                Directory.CreateDirectory(backupRoot);
+
+                string backupFolderName = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string backupFolder = Path.Combine(backupRoot, backupFolderName);
+                Directory.CreateDirectory(backupFolder);
+
+                foreach (string catalogFile in catalogFiles)
+                {
+                    string dest = Path.Combine(backupFolder, Path.GetFileName(catalogFile));
+                    File.Copy(catalogFile, dest, true);
+                }
+
+                AppendLog($"catalog 백업 완료: {backupFolder}");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("catalog 백업 실패: " + ex.Message);
             }
         }
 
@@ -1102,26 +1202,68 @@ namespace DonkeycarManager
 
         private void SaveCatalog()
         {
-            List<string> lines = new List<string>();
-
-            foreach (DonkeyFrame frame in allFrames)
+            try
             {
-                Dictionary<string, object?> obj = new Dictionary<string, object?>
+                BackupCatalogFiles();
+
+                string[] oldCatalogFiles = GetCatalogFiles();
+
+                foreach (string oldCatalog in oldCatalogFiles)
                 {
-                    ["_index"] = frame.Index,
-                    ["_session_id"] = frame.SessionId,
-                    ["_timestamp_ms"] = frame.TimestampMs,
-                    ["cam/image_array"] = frame.ImageFileName,
-                    ["user/angle"] = frame.Angle,
-                    ["user/mode"] = frame.Mode,
-                    ["user/throttle"] = frame.Throttle
-                };
+                    if (File.Exists(oldCatalog))
+                        File.Delete(oldCatalog);
+                }
 
-                string json = JsonSerializer.Serialize(obj);
-                lines.Add(json);
+                List<DonkeyFrame> orderedFrames = allFrames
+                    .OrderBy(f => f.Index)
+                    .ToList();
+
+                int catalogIndex = 0;
+                int writtenCount = 0;
+
+                for (int i = 0; i < orderedFrames.Count; i += CatalogChunkSize)
+                {
+                    List<string> lines = new List<string>();
+
+                    List<DonkeyFrame> chunk = orderedFrames
+                        .Skip(i)
+                        .Take(CatalogChunkSize)
+                        .ToList();
+
+                    foreach (DonkeyFrame frame in chunk)
+                    {
+                        Dictionary<string, object?> obj = new Dictionary<string, object?>
+                        {
+                            ["_index"] = frame.Index,
+                            ["_session_id"] = frame.SessionId,
+                            ["_timestamp_ms"] = frame.TimestampMs,
+                            ["cam/image_array"] = frame.ImageFileName,
+                            ["user/angle"] = frame.Angle,
+                            ["user/mode"] = frame.Mode,
+                            ["user/throttle"] = frame.Throttle
+                        };
+
+                        string json = JsonSerializer.Serialize(obj);
+                        lines.Add(json);
+                    }
+
+                    string catalogPath = Path.Combine(dataFolderPath, $"catalog_{catalogIndex}.catalog");
+                    File.WriteAllLines(catalogPath, lines);
+
+                    writtenCount += lines.Count;
+                    catalogIndex++;
+                }
+
+                catalogFilePath = Path.Combine(dataFolderPath, "catalog_0.catalog");
+
+                AppendLog(
+                    $"catalog 저장 완료: {writtenCount}개 프레임 / catalog 파일 {catalogIndex}개로 분할 저장"
+                );
             }
-
-            File.WriteAllLines(catalogFilePath, lines);
+            catch (Exception ex)
+            {
+                MessageBox.Show("catalog 저장 중 오류가 발생했습니다.\n\n" + ex.Message);
+            }
         }
 
         private bool IsWslMode(string pythonExe)
