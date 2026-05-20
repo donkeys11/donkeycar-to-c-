@@ -479,23 +479,7 @@ namespace DonkeycarManager
 
             try
             {
-                foreach (string line in File.ReadLines(catalogFilePath))
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-
-                    try
-                    {
-                        DonkeyFrame? frame = JsonSerializer.Deserialize<DonkeyFrame>(line);
-
-                        if (frame != null && !string.IsNullOrWhiteSpace(frame.ImageFileName))
-                            allFrames.Add(frame);
-                    }
-                    catch
-                    {
-                        AppendLog("catalog 파싱 실패 줄 발견");
-                    }
-                }
+                allFrames = CatalogParser.Load(catalogFilePath);
 
                 visibleFrames = allFrames.ToList();
 
@@ -809,8 +793,8 @@ namespace DonkeycarManager
             }
 
             File.WriteAllLines(catalogFilePath, lines);
+            CatalogParser.Save(catalogFilePath, allFrames);
         }
-
         private void UpdateModelStatus()
         {
             string mycarPath = txtMycarPath.Text.Trim();
