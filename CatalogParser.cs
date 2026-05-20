@@ -36,6 +36,30 @@ namespace DonkeycarManager
             return frames;
         }
 
+        // data 폴더 안의 catalog 파일을 전부 읽어서 합쳐서 반환
+        public static List<DonkeyFrame> LoadAll(string dataFolderPath)
+        {
+            var allFrames = new List<DonkeyFrame>();
+
+            // catalog_0, catalog_1, catalog_2 ... 순서대로 탐색
+            for (int i = 0; i < 100; i++)
+            {
+                string path = Path.Combine(dataFolderPath, $"catalog_{i}.catalog");
+
+                // 파일이 없으면 탐색 중단
+                if (!File.Exists(path))
+                    break;
+
+                List<DonkeyFrame> frames = Load(path);
+                allFrames.AddRange(frames);
+            }
+
+            if (allFrames.Count == 0)
+                throw new FileNotFoundException("catalog 파일을 찾을 수 없습니다.");
+
+            return allFrames;
+        }
+
         // 프레임 리스트를 catalog 파일로 저장
         public static void Save(string catalogFilePath, List<DonkeyFrame> frames)
         {

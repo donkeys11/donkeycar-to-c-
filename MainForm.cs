@@ -479,7 +479,7 @@ namespace DonkeycarManager
 
             try
             {
-                allFrames = CatalogParser.Load(catalogFilePath);
+                allFrames = CatalogParser.LoadAll(dataFolderPath);
 
                 visibleFrames = allFrames.ToList();
 
@@ -494,6 +494,12 @@ namespace DonkeycarManager
                 PopulateTimeline(); // <--- 여기 추가!
 
                 AppendLog($"로드 완료: {visibleFrames.Count}개 프레임");
+                // 데이터 품질 요약 출력
+                AppendLog("=== 데이터 품질 요약 ===");
+                DataSummary summary = DataSummary.Calculate(allFrames);
+                foreach (string line in summary.ToString().Split('\n'))
+                    AppendLog(line);
+                AppendLog("====================");
                 UpdateModelStatus();
             }
             catch (Exception ex)
@@ -548,9 +554,9 @@ namespace DonkeycarManager
             LoadImageToPictureBox(picCleanerPreview, imagePath);
 
             lblFrameInfo.Text = $"Frame: {index + 1} / {visibleFrames.Count}";
-            lblAngle.Text = $"Angle: {frame.Angle:F4}";
-            lblThrottle.Text = $"Throttle: {frame.Throttle:F4}";
-            lblMode.Text = $"Mode: {frame.Mode}";
+            lblAngle.Text = $"핸들 각도: {frame.Angle:F4}";
+            lblThrottle.Text = $"속도: {frame.Throttle:F4}";
+            lblMode.Text = $"모드: {frame.Mode}";
 
             lblCleanerInfo.Text =
                 $"선택 프레임 정보: index={frame.Index}, angle={frame.Angle:F4}, throttle={frame.Throttle:F4}, mode={frame.Mode}";
