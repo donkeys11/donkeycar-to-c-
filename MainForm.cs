@@ -26,7 +26,9 @@ namespace DonkeycarManager
         private bool isUpdatingSelection = false;
 
         private Process? trainProcess;
+
         private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
+        private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
 
         private const string WslDistroName = "Ubuntu-22.04";
         private const string CondaEnvName = "e2e_env";
@@ -35,6 +37,11 @@ namespace DonkeycarManager
         private double? overlayPredictedAngle = null;
         private double? overlayActualThrottle = null;
         private double? overlayPredictedThrottle = null;
+
+        private int cleanerRangeStartIndex = -1;
+        private int cleanerRangeEndIndex = -1;
+        private int cleanerRangePlayIndex = -1;
+        private bool isDraggingCleanerRange = false;
 
         public MainForm()
         {
@@ -48,6 +55,9 @@ namespace DonkeycarManager
 
             autoPlayTimer.Interval = 150;
             autoPlayTimer.Tick += AutoPlayTimer_Tick;
+
+            cleanerRangePlayTimer.Interval = 120;
+            cleanerRangePlayTimer.Tick += CleanerRangePlayTimer_Tick;
 
             picPilotTest.Paint += picPilotTest_Paint;
             picPilotTest.Resize += (s, e) => picPilotTest.Invalidate();
@@ -65,15 +75,27 @@ namespace DonkeycarManager
             btnClearFilter.Click += btnClearFilter_Click;
             btnDeleteFrame.Click += btnDeleteFrame_Click;
 
+            pnlCleanerTimeline.Paint += pnlCleanerTimeline_Paint;
+            pnlCleanerTimeline.MouseDown += pnlCleanerTimeline_MouseDown;
+            pnlCleanerTimeline.MouseMove += pnlCleanerTimeline_MouseMove;
+            pnlCleanerTimeline.MouseUp += pnlCleanerTimeline_MouseUp;
+
+            btnDeleteRange.Click += btnDeleteRange_Click;
+            btnPlayRange.Click += btnPlayRange_Click;
+            btnClearRange.Click += btnClearRange_Click;
+
             btnBrowseMycar.Click += btnBrowseMycar_Click;
             btnTrain.Click += btnTrain_Click;
             btnStopTrain.Click += btnStopTrain_Click;
 
             btnBrowseModel.Click += btnBrowseModel_Click;
             btnRunPilotTest.Click += btnRunPilotTest_Click;
+            btnUseViewerFrame.Click += btnUseViewerFrame_Click;
 
             lstFrames.SelectedIndexChanged += lstFrames_SelectedIndexChanged;
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
+            lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
+
             trbFrame.Scroll += trbFrame_Scroll;
         }
 
@@ -101,10 +123,7 @@ namespace DonkeycarManager
                 return;
             }
 
-            DirectoryInfo? parent = Directory.GetParent(dataFolderPath);
-            if (parent != null)
-                txtMycarPath.Text = "~/mycar";
-
+            txtMycarPath.Text = "~/mycar";
             lblDataPath.Text = "Data Folder: " + dataFolderPath;
 
             LoadCatalog();
@@ -158,6 +177,7 @@ namespace DonkeycarManager
 
             BindFrameLists();
             SetupTrackBar();
+            ResetCleanerRange();
 
             if (visibleFrames.Count > 0)
                 ShowFrame(0);
@@ -169,17 +189,34 @@ namespace DonkeycarManager
 
         private void btnDeleteFrame_Click(object? sender, EventArgs e)
         {
-            if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
+            if (visibleFrames.Count == 0)
+            {
+                MessageBox.Show("삭제할 데이터가 없습니다.");
+                return;
+            }
+
+            List<DonkeyFrame> framesToDelete = new List<DonkeyFrame>();
+
+            foreach (int selectedIndex in lstCleanerFrames.SelectedIndices)
+            {
+                if (selectedIndex >= 0 && selectedIndex < visibleFrames.Count)
+                    framesToDelete.Add(visibleFrames[selectedIndex]);
+            }
+
+            if (framesToDelete.Count == 0 && currentIndex >= 0 && currentIndex < visibleFrames.Count)
+                framesToDelete.Add(visibleFrames[currentIndex]);
+
+            if (framesToDelete.Count == 0)
             {
                 MessageBox.Show("삭제할 프레임을 먼저 선택하세요.");
                 return;
             }
 
-            DonkeyFrame frame = visibleFrames[currentIndex];
-
             DialogResult result = MessageBox.Show(
-                $"현재 프레임을 삭제할까요?\n\nIndex: {frame.Index}\nImage: {frame.ImageFileName}",
-                "삭제 확인",
+                $"선택한 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
+                "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
+                "삭제 전 data 폴더 백업을 권장합니다.",
+                "다중 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
             );
@@ -187,29 +224,347 @@ namespace DonkeycarManager
             if (result != DialogResult.Yes)
                 return;
 
+            DeleteFrames(framesToDelete, "다중 삭제");
+        }
+
+        private void btnDeleteRange_Click(object? sender, EventArgs e)
+        {
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            {
+                MessageBox.Show("먼저 타임라인에서 삭제할 구간을 드래그해서 선택하세요.");
+                return;
+            }
+
+            List<DonkeyFrame> framesToDelete = new List<DonkeyFrame>();
+
+            for (int i = start; i <= end; i++)
+                framesToDelete.Add(visibleFrames[i]);
+
+            DialogResult result = MessageBox.Show(
+                $"선택 구간 {start + 1} ~ {end + 1}의 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
+                "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
+                "삭제 전 data 폴더 백업을 권장합니다.",
+                "구간 삭제 확인",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+            );
+
+            if (result != DialogResult.Yes)
+                return;
+
+            DeleteFrames(framesToDelete, "구간 삭제");
+        }
+
+        private void DeleteFrames(List<DonkeyFrame> framesToDelete, string logTitle)
+        {
             try
             {
                 DisposeCurrentImages();
 
-                string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+                HashSet<string> deleteKeys = new HashSet<string>();
 
-                if (File.Exists(imagePath))
-                    File.Delete(imagePath);
+                foreach (DonkeyFrame frame in framesToDelete)
+                {
+                    string key = MakeFrameKey(frame);
+                    deleteKeys.Add(key);
 
-                allFrames.RemoveAll(f =>
-                    f.Index == frame.Index &&
-                    f.ImageFileName == frame.ImageFileName
-                );
+                    string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+
+                    if (File.Exists(imagePath))
+                    {
+                        File.Delete(imagePath);
+                        AppendLog($"{logTitle} 이미지 삭제: {frame.ImageFileName}");
+                    }
+                    else
+                    {
+                        AppendLog($"{logTitle} 이미지 없음: {frame.ImageFileName}");
+                    }
+                }
+
+                int removedCount = allFrames.RemoveAll(f => deleteKeys.Contains(MakeFrameKey(f)));
 
                 SaveCatalog();
+
+                ResetCleanerRange();
                 ApplyFilter();
 
-                AppendLog($"삭제 완료: index={frame.Index}, image={frame.ImageFileName}");
+                AppendLog($"{logTitle} 완료: {removedCount}개 프레임 삭제");
+                MessageBox.Show($"{removedCount}개 프레임 삭제가 완료되었습니다.");
             }
             catch (Exception ex)
             {
                 MessageBox.Show("삭제 중 오류가 발생했습니다.\n\n" + ex.Message);
             }
+        }
+
+        private string MakeFrameKey(DonkeyFrame frame)
+        {
+            return $"{frame.Index}|{frame.ImageFileName}";
+        }
+
+        private void btnPlayRange_Click(object? sender, EventArgs e)
+        {
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            {
+                MessageBox.Show("먼저 타임라인에서 재생할 구간을 드래그해서 선택하세요.");
+                return;
+            }
+
+            if (cleanerRangePlayTimer.Enabled)
+            {
+                cleanerRangePlayTimer.Stop();
+                btnPlayRange.Text = "구간 재생";
+                return;
+            }
+
+            cleanerRangePlayIndex = start;
+            ShowFrame(cleanerRangePlayIndex);
+
+            cleanerRangePlayTimer.Start();
+            btnPlayRange.Text = "재생 중지";
+
+            AppendLog($"구간 재생 시작: {start + 1} ~ {end + 1}");
+        }
+
+        private void CleanerRangePlayTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            {
+                cleanerRangePlayTimer.Stop();
+                btnPlayRange.Text = "구간 재생";
+                return;
+            }
+
+            if (cleanerRangePlayIndex < start || cleanerRangePlayIndex > end)
+                cleanerRangePlayIndex = start;
+
+            ShowFrame(cleanerRangePlayIndex);
+            pnlCleanerTimeline.Invalidate();
+
+            cleanerRangePlayIndex++;
+
+            if (cleanerRangePlayIndex > end)
+            {
+                cleanerRangePlayTimer.Stop();
+                btnPlayRange.Text = "구간 재생";
+                AppendLog("구간 재생 종료");
+            }
+        }
+
+        private void btnClearRange_Click(object? sender, EventArgs e)
+        {
+            ResetCleanerRange();
+            AppendLog("Cleaner 구간 선택 해제");
+        }
+
+        private void pnlCleanerTimeline_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (visibleFrames.Count == 0)
+                return;
+
+            int index = HitTestCleanerTimelineIndex(e.X);
+
+            if (index < 0)
+                return;
+
+            cleanerRangeStartIndex = index;
+            cleanerRangeEndIndex = index;
+            isDraggingCleanerRange = true;
+
+            ShowFrame(index);
+            UpdateCleanerRangeUi();
+            pnlCleanerTimeline.Invalidate();
+        }
+
+        private void pnlCleanerTimeline_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (!isDraggingCleanerRange || visibleFrames.Count == 0)
+                return;
+
+            int index = HitTestCleanerTimelineIndex(e.X);
+
+            if (index < 0)
+                return;
+
+            cleanerRangeEndIndex = index;
+
+            ShowFrame(index);
+            UpdateCleanerRangeUi();
+            pnlCleanerTimeline.Invalidate();
+        }
+
+        private void pnlCleanerTimeline_MouseUp(object? sender, MouseEventArgs e)
+        {
+            if (!isDraggingCleanerRange)
+                return;
+
+            isDraggingCleanerRange = false;
+
+            NormalizeCleanerRange();
+            UpdateCleanerRangeUi();
+            pnlCleanerTimeline.Invalidate();
+        }
+
+        private int HitTestCleanerTimelineIndex(int mouseX)
+        {
+            if (visibleFrames.Count == 0)
+                return -1;
+
+            Rectangle rect = pnlCleanerTimeline.ClientRectangle;
+            rect.Inflate(-6, -8);
+
+            if (mouseX < rect.Left)
+                mouseX = rect.Left;
+
+            if (mouseX > rect.Right)
+                mouseX = rect.Right;
+
+            double ratio = (double)(mouseX - rect.Left) / Math.Max(1, rect.Width);
+            int index = (int)(ratio * visibleFrames.Count);
+
+            if (index < 0)
+                index = 0;
+
+            if (index >= visibleFrames.Count)
+                index = visibleFrames.Count - 1;
+
+            return index;
+        }
+
+        private bool TryGetNormalizedCleanerRange(out int start, out int end)
+        {
+            start = -1;
+            end = -1;
+
+            if (cleanerRangeStartIndex < 0 || cleanerRangeEndIndex < 0)
+                return false;
+
+            if (visibleFrames.Count == 0)
+                return false;
+
+            start = Math.Min(cleanerRangeStartIndex, cleanerRangeEndIndex);
+            end = Math.Max(cleanerRangeStartIndex, cleanerRangeEndIndex);
+
+            start = Math.Max(0, Math.Min(start, visibleFrames.Count - 1));
+            end = Math.Max(0, Math.Min(end, visibleFrames.Count - 1));
+
+            return start <= end;
+        }
+
+        private void NormalizeCleanerRange()
+        {
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+                return;
+
+            cleanerRangeStartIndex = start;
+            cleanerRangeEndIndex = end;
+        }
+
+        private void ResetCleanerRange()
+        {
+            cleanerRangeStartIndex = -1;
+            cleanerRangeEndIndex = -1;
+            cleanerRangePlayIndex = -1;
+            isDraggingCleanerRange = false;
+
+            cleanerRangePlayTimer.Stop();
+
+            if (btnPlayRange != null)
+                btnPlayRange.Text = "구간 재생";
+
+            UpdateCleanerRangeUi();
+
+            if (pnlCleanerTimeline != null)
+                pnlCleanerTimeline.Invalidate();
+        }
+
+        private void UpdateCleanerRangeUi()
+        {
+            if (lblCleanerRangeInfo == null)
+                return;
+
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            {
+                lblCleanerRangeInfo.Text = "선택 구간: 없음";
+                return;
+            }
+
+            int count = end - start + 1;
+
+            lblCleanerRangeInfo.Text =
+                $"선택 구간: {start + 1} ~ {end + 1} / {visibleFrames.Count}    선택: {count}개";
+        }
+
+        private void pnlCleanerTimeline_Paint(object? sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Rectangle rect = pnlCleanerTimeline.ClientRectangle;
+            rect.Inflate(-6, -8);
+
+            using SolidBrush bgBrush = new SolidBrush(Color.FromArgb(18, 26, 42));
+            g.FillRectangle(bgBrush, pnlCleanerTimeline.ClientRectangle);
+
+            if (visibleFrames.Count == 0)
+            {
+                using Font font = new Font("맑은 고딕", 9, FontStyle.Bold);
+                using SolidBrush brush = new SolidBrush(Color.White);
+                g.DrawString("로드된 프레임이 없습니다.", font, brush, 12, 12);
+                return;
+            }
+
+            int count = visibleFrames.Count;
+            float itemWidth = Math.Max(1f, (float)rect.Width / count);
+
+            for (int i = 0; i < count; i++)
+            {
+                DonkeyFrame frame = visibleFrames[i];
+
+                float x = rect.Left + i * itemWidth;
+                float w = Math.Max(1f, itemWidth);
+
+                Color frameColor;
+
+                if (Math.Abs(frame.Throttle) <= 0.000001)
+                    frameColor = Color.FromArgb(80, 80, 80);
+                else if (Math.Abs(frame.Angle) <= 0.000001)
+                    frameColor = Color.FromArgb(70, 95, 130);
+                else if (frame.Angle > 0)
+                    frameColor = Color.FromArgb(85, 120, 180);
+                else
+                    frameColor = Color.FromArgb(55, 85, 135);
+
+                using SolidBrush frameBrush = new SolidBrush(frameColor);
+                g.FillRectangle(frameBrush, x, rect.Top, w, rect.Height);
+            }
+
+            if (TryGetNormalizedCleanerRange(out int start, out int end))
+            {
+                float startX = rect.Left + start * itemWidth;
+                float endX = rect.Left + (end + 1) * itemWidth;
+
+                using SolidBrush rangeBrush = new SolidBrush(Color.FromArgb(120, 245, 180, 45));
+                using Pen rangePen = new Pen(Color.FromArgb(245, 180, 45), 3);
+
+                g.FillRectangle(rangeBrush, startX, rect.Top, endX - startX, rect.Height);
+                g.DrawRectangle(rangePen, startX, rect.Top, endX - startX, rect.Height);
+
+                using Pen handlePen = new Pen(Color.FromArgb(255, 230, 80), 4);
+                g.DrawLine(handlePen, startX, rect.Top - 3, startX, rect.Bottom + 3);
+                g.DrawLine(handlePen, endX, rect.Top - 3, endX, rect.Bottom + 3);
+            }
+
+            if (currentIndex >= 0 && currentIndex < count)
+            {
+                float currentX = rect.Left + currentIndex * itemWidth;
+
+                using Pen currentPen = new Pen(Color.White, 2);
+                g.DrawLine(currentPen, currentX, rect.Top - 5, currentX, rect.Bottom + 5);
+            }
+
+            using Pen borderPen = new Pen(Color.FromArgb(120, 255, 255, 255));
+            g.DrawRectangle(borderPen, rect);
         }
 
         private void btnBrowseMycar_Click(object? sender, EventArgs e)
@@ -361,11 +716,31 @@ namespace DonkeycarManager
             }
         }
 
+        private void btnUseViewerFrame_Click(object? sender, EventArgs e)
+        {
+            if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
+            {
+                MessageBox.Show("먼저 Viewer 탭에서 사용할 이미지를 선택하세요.");
+                return;
+            }
+
+            isUpdatingSelection = true;
+
+            if (lstPilotFrames.SelectedIndex != currentIndex)
+                lstPilotFrames.SelectedIndex = currentIndex;
+
+            isUpdatingSelection = false;
+
+            ShowFrame(currentIndex);
+
+            AppendLog($"Pilot Test 이미지 선택: frame index {currentIndex}");
+        }
+
         private async void btnRunPilotTest_Click(object? sender, EventArgs e)
         {
             if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
             {
-                MessageBox.Show("먼저 Viewer에서 테스트할 프레임을 선택하세요.");
+                MessageBox.Show("먼저 테스트할 프레임을 선택하세요.");
                 return;
             }
 
@@ -466,8 +841,22 @@ namespace DonkeycarManager
             if (isUpdatingSelection)
                 return;
 
-            if (lstCleanerFrames.SelectedIndex >= 0 && lstCleanerFrames.SelectedIndex < visibleFrames.Count)
-                ShowFrame(lstCleanerFrames.SelectedIndex);
+            if (lstCleanerFrames.SelectedIndices.Count == 0)
+                return;
+
+            int lastSelectedIndex = lstCleanerFrames.SelectedIndices[lstCleanerFrames.SelectedIndices.Count - 1];
+
+            if (lastSelectedIndex >= 0 && lastSelectedIndex < visibleFrames.Count)
+                ShowFrame(lastSelectedIndex);
+        }
+
+        private void lstPilotFrames_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (isUpdatingSelection)
+                return;
+
+            if (lstPilotFrames.SelectedIndex >= 0 && lstPilotFrames.SelectedIndex < visibleFrames.Count)
+                ShowFrame(lstPilotFrames.SelectedIndex);
         }
 
         private void trbFrame_Scroll(object? sender, EventArgs e)
@@ -503,6 +892,7 @@ namespace DonkeycarManager
 
                 BindFrameLists();
                 SetupTrackBar();
+                ResetCleanerRange();
 
                 if (visibleFrames.Count > 0)
                     ShowFrame(0);
@@ -524,9 +914,11 @@ namespace DonkeycarManager
 
             lstFrames.BeginUpdate();
             lstCleanerFrames.BeginUpdate();
+            lstPilotFrames.BeginUpdate();
 
             lstFrames.Items.Clear();
             lstCleanerFrames.Items.Clear();
+            lstPilotFrames.Items.Clear();
 
             foreach (DonkeyFrame frame in visibleFrames)
             {
@@ -535,12 +927,17 @@ namespace DonkeycarManager
 
                 lstFrames.Items.Add(text);
                 lstCleanerFrames.Items.Add(text);
+                lstPilotFrames.Items.Add(text);
             }
 
             lstFrames.EndUpdate();
             lstCleanerFrames.EndUpdate();
+            lstPilotFrames.EndUpdate();
 
             isUpdatingSelection = false;
+
+            pnlCleanerTimeline.Invalidate();
+            UpdateCleanerRangeUi();
         }
 
         private void SetupTrackBar()
@@ -562,6 +959,7 @@ namespace DonkeycarManager
 
             LoadImageToPictureBox(picFrame, imagePath);
             LoadImageToPictureBox(picCleanerPreview, imagePath);
+            LoadImageToPictureBox(picPilotTest, imagePath);
 
             overlayActualAngle = null;
             overlayPredictedAngle = null;
@@ -577,6 +975,14 @@ namespace DonkeycarManager
             lblCleanerInfo.Text =
                 $"선택 프레임 정보: index={frame.Index}, angle={frame.Angle:F4}, throttle={frame.Throttle:F4}, mode={frame.Mode}";
 
+            lblActualAngle.Text = $"실제 Angle: {frame.Angle:F4}";
+            lblActualThrottle.Text = $"실제 Throttle: {frame.Throttle:F4}";
+            lblPredictedAngle.Text = "예측 Angle: -";
+            lblPredictedThrottle.Text = "예측 Throttle: -";
+            lblAngleError.Text = "Angle Error: -";
+            lblPilotWarning.Text = "판정: -";
+            lblPilotWarning.ForeColor = Color.DimGray;
+
             if (trbFrame.Value != index)
                 trbFrame.Value = index;
 
@@ -585,10 +991,21 @@ namespace DonkeycarManager
             if (lstFrames.SelectedIndex != index)
                 lstFrames.SelectedIndex = index;
 
-            if (lstCleanerFrames.SelectedIndex != index)
-                lstCleanerFrames.SelectedIndex = index;
+            if (!lstCleanerFrames.Focused)
+            {
+                if (lstCleanerFrames.SelectedIndex != index)
+                {
+                    lstCleanerFrames.ClearSelected();
+                    lstCleanerFrames.SelectedIndex = index;
+                }
+            }
+
+            if (lstPilotFrames.SelectedIndex != index)
+                lstPilotFrames.SelectedIndex = index;
 
             isUpdatingSelection = false;
+
+            pnlCleanerTimeline.Invalidate();
         }
 
         private void LoadImageToPictureBox(PictureBox pictureBox, string imagePath)
@@ -635,6 +1052,7 @@ namespace DonkeycarManager
 
             BindFrameLists();
             SetupTrackBar();
+            ResetCleanerRange();
 
             if (visibleFrames.Count > 0)
                 ShowFrame(0);
@@ -672,11 +1090,14 @@ namespace DonkeycarManager
             isUpdatingSelection = true;
             lstFrames.Items.Clear();
             lstCleanerFrames.Items.Clear();
+            lstPilotFrames.Items.Clear();
             isUpdatingSelection = false;
 
             trbFrame.Minimum = 0;
             trbFrame.Maximum = 0;
             trbFrame.Value = 0;
+
+            ResetCleanerRange();
         }
 
         private void SaveCatalog()
@@ -950,6 +1371,9 @@ namespace DonkeycarManager
 
         private void AppendLog(string message)
         {
+            if (txtLog == null)
+                return;
+
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
         }
 
@@ -1096,32 +1520,10 @@ namespace DonkeycarManager
             g.DrawString("Throttle", font, white, panelX + 10, panelY + 6);
 
             if (overlayActualThrottle.HasValue)
-            {
-                DrawSingleThrottleBar(
-                    g,
-                    panelX + 85,
-                    panelY + 27,
-                    150,
-                    10,
-                    overlayActualThrottle.Value,
-                    Color.DeepSkyBlue,
-                    "A"
-                );
-            }
+                DrawSingleThrottleBar(g, panelX + 85, panelY + 27, 150, 10, overlayActualThrottle.Value, Color.DeepSkyBlue, "A");
 
             if (overlayPredictedThrottle.HasValue)
-            {
-                DrawSingleThrottleBar(
-                    g,
-                    panelX + 85,
-                    panelY + 47,
-                    150,
-                    10,
-                    overlayPredictedThrottle.Value,
-                    Color.LimeGreen,
-                    "P"
-                );
-            }
+                DrawSingleThrottleBar(g, panelX + 85, panelY + 47, 150, 10, overlayPredictedThrottle.Value, Color.LimeGreen, "P");
         }
 
         private void DrawSingleThrottleBar(Graphics g, int x, int y, int w, int h, double value, Color color, string label)
@@ -1258,6 +1660,9 @@ namespace DonkeycarManager
             {
                 autoPlayTimer.Stop();
                 autoPlayTimer.Dispose();
+
+                cleanerRangePlayTimer.Stop();
+                cleanerRangePlayTimer.Dispose();
 
                 if (trainProcess != null && !trainProcess.HasExited)
                     trainProcess.Kill(true);
