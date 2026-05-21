@@ -58,6 +58,7 @@ namespace DonkeycarManager
             InitializeComponent();
             ConnectEvents();
 
+
             txtMycarPath.Text = "~/mycar";
             txtPythonExe.Text = "wsl";
             txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
@@ -83,6 +84,11 @@ namespace DonkeycarManager
 
         private void ConnectEvents()
         {
+            btnScanModels.Click += btnScanModels_Click;
+            trbBrightness.Scroll += trbBrightness_Scroll;
+            trbContrast.Scroll += trbContrast_Scroll;
+            cmbModelList.SelectedIndexChanged += cmbModelList_SelectedIndexChanged;
+
             btnOpenDataFolder.Click += btnOpenDataFolder_Click;
             btnReload.Click += btnReload_Click;
             btnAutoPlay.Click += btnAutoPlay_Click;
@@ -121,6 +127,74 @@ namespace DonkeycarManager
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
 
             trbFrame.Scroll += trbFrame_Scroll;
+        }
+
+        private void trbBrightness_Scroll(object? sender, EventArgs e)
+        {
+            lblBrightness.Text = $"밝기: {trbBrightness.Value}";
+            RefreshCurrentFrame();
+        }
+
+        private void trbContrast_Scroll(object? sender, EventArgs e)
+        {
+            lblContrast.Text = $"명암: {trbContrast.Value}";
+            RefreshCurrentFrame();
+        }
+
+        private void RefreshCurrentFrame()
+        {
+            if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+                ShowFrame(currentIndex);
+        }
+
+        private void cmbModelList_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbModelList.SelectedItem != null)
+            {
+                string selected = cmbModelList.SelectedItem.ToString()!.Trim();
+                txtModelPath.Text = $"~/mycar/models/{selected}";
+                AppendLog($"모델 선택: {selected}");
+            }
+        }
+
+        private async void btnScanModels_Click(object? sender, EventArgs e)
+        {
+            AppendLog("모델 스캔 시작...");
+            cmbModelList.Items.Clear();
+
+            string command = "ls ~/mycar/models/*.h5 2>/dev/null | xargs -I{} basename {}";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            string[] models = output
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (models.Length == 0)
+            {
+                AppendLog("[경고] ~/mycar/models/ 에 .h5 파일이 없습니다.");
+                return;
+            }
+
+            foreach (string model in models)
+                cmbModelList.Items.Add(model.Trim());
+
+            cmbModelList.SelectedIndex = 0;
+            AppendLog($"모델 스캔 완료: {models.Length}개 발견");
         }
 
         private void btnOpenDataFolder_Click(object? sender, EventArgs e)
@@ -1654,7 +1728,10 @@ namespace DonkeycarManager
                     using MemoryStream ms = new MemoryStream(bytes);
                     using Bitmap temp = new Bitmap(ms);
 
-                    pictureBox.Image = new Bitmap(temp);
+                    if (pictureBox == picFrame || pictureBox == picCleanerPreview)
+                        pictureBox.Image = ApplyBrightnessContrast(temp);
+                    else
+                        pictureBox.Image = new Bitmap(temp);
                 }
             }
             catch
@@ -2325,6 +2402,37 @@ namespace DonkeycarManager
                 return "Warning";
 
             return "High Error";
+        }
+
+        private Bitmap ApplyBrightnessContrast(Bitmap source)
+        {
+            float brightness = trbBrightness.Value / 100f;
+            float contrast = (trbContrast.Value + 100f) / 100f;
+
+            Bitmap result = new Bitmap(source.Width, source.Height);
+
+            using Graphics g = Graphics.FromImage(result);
+
+            float t = (1f - contrast) / 2f;
+
+            System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][]
+            {
+        new float[] { contrast, 0, 0, 0, 0 },
+        new float[] { 0, contrast, 0, 0, 0 },
+        new float[] { 0, 0, contrast, 0, 0 },
+        new float[] { 0, 0, 0, 1, 0 },
+        new float[] { t + brightness, t + brightness, t + brightness, 0, 1 }
+            });
+
+            using System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
+            ia.SetColorMatrix(cm);
+
+            g.DrawImage(source,
+                new Rectangle(0, 0, source.Width, source.Height),
+                0, 0, source.Width, source.Height,
+                GraphicsUnit.Pixel, ia);
+
+            return result;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

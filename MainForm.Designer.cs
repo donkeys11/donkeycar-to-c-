@@ -7,6 +7,15 @@ namespace DonkeycarManager
     {
         private System.ComponentModel.IContainer components = null;
 
+        private ComboBox cmbModelList;
+        private Button btnScanModels;
+        private Label lblModelList;
+        private TrackBar trbBrightness;
+        private TrackBar trbContrast;
+        private Label lblBrightness;
+        private Label lblContrast;
+
+
         private TabControl tabMain;
         private TabPage tabViewer;
         private TabPage tabCleaner;
@@ -100,6 +109,17 @@ namespace DonkeycarManager
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
+
+            cmbModelList = new ComboBox();
+            btnScanModels = new Button();
+            lblModelList = new Label();
+            trbBrightness = new TrackBar();
+            trbContrast = new TrackBar();
+            lblBrightness = new Label();
+            lblContrast = new Label();
+
+            ((System.ComponentModel.ISupportInitialize)trbBrightness).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)trbContrast).BeginInit();
 
             tabMain = new TabControl();
             tabViewer = new TabPage();
@@ -299,6 +319,37 @@ namespace DonkeycarManager
             trbFrame.Size = new Size(1350, 56);
             trbFrame.TickStyle = TickStyle.None;
 
+            lblBrightness.AutoSize = true;
+            lblBrightness.Location = new Point(450, 90);
+            lblBrightness.Name = "lblBrightness";
+            lblBrightness.Text = "밝기: 0";
+
+            trbBrightness.Location = new Point(520, 80);
+            trbBrightness.Name = "trbBrightness";
+            trbBrightness.Size = new Size(160, 45);
+            trbBrightness.Minimum = -100;
+            trbBrightness.Maximum = 100;
+            trbBrightness.Value = 0;
+            trbBrightness.TickStyle = TickStyle.None;
+            trbBrightness.SmallChange = 5;
+            trbBrightness.LargeChange = 10;
+
+            lblContrast.AutoSize = true;
+            lblContrast.Location = new Point(700, 90);
+            lblContrast.Name = "lblContrast";
+            lblContrast.Text = "명암: 0";
+
+            trbContrast.Location = new Point(760, 80);
+            trbContrast.Name = "trbContrast";
+            trbContrast.Size = new Size(160, 45);
+            trbContrast.Minimum = -100;
+            trbContrast.Maximum = 100;
+            trbContrast.Value = 0;
+            trbContrast.TickStyle = TickStyle.None;
+            trbContrast.SmallChange = 5;
+            trbContrast.LargeChange = 10;
+
+
             tabViewer.Controls.Add(lblTitleViewer);
             tabViewer.Controls.Add(btnOpenDataFolder);
             tabViewer.Controls.Add(btnReload);
@@ -311,6 +362,10 @@ namespace DonkeycarManager
             tabViewer.Controls.Add(lblThrottle);
             tabViewer.Controls.Add(lblMode);
             tabViewer.Controls.Add(trbFrame);
+            tabViewer.Controls.Add(lblBrightness);
+            tabViewer.Controls.Add(trbBrightness);
+            tabViewer.Controls.Add(lblContrast);
+            tabViewer.Controls.Add(trbContrast);
 
             // =========================
             // Cleaner Tab
@@ -642,13 +697,13 @@ namespace DonkeycarManager
             btnBrowseModel.Text = "찾기";
             btnBrowseModel.UseVisualStyleBackColor = true;
 
-            btnRunPilotTest.Location = new Point(120, 145);
+            btnRunPilotTest.Location = new Point(120, 190);
             btnRunPilotTest.Name = "btnRunPilotTest";
             btnRunPilotTest.Size = new Size(250, 42);
             btnRunPilotTest.Text = "현재 이미지로 예측 테스트";
             btnRunPilotTest.UseVisualStyleBackColor = true;
 
-            btnUseViewerFrame.Location = new Point(390, 145);
+            btnUseViewerFrame.Location = new Point(380, 190);
             btnUseViewerFrame.Name = "btnUseViewerFrame";
             btnUseViewerFrame.Size = new Size(210, 42);
             btnUseViewerFrame.Text = "Viewer 선택 이미지 사용";
@@ -657,13 +712,13 @@ namespace DonkeycarManager
             btnPilotAutoPlay.BackColor = Color.FromArgb(76, 175, 80);
             btnPilotAutoPlay.FlatStyle = FlatStyle.Flat;
             btnPilotAutoPlay.ForeColor = Color.White;
-            btnPilotAutoPlay.Location = new Point(620, 145);
+            btnPilotAutoPlay.Location = new Point(600, 190);
             btnPilotAutoPlay.Name = "btnPilotAutoPlay";
             btnPilotAutoPlay.Size = new Size(120, 42);
             btnPilotAutoPlay.Text = "자동 재생";
             btnPilotAutoPlay.UseVisualStyleBackColor = false;
 
-            btnPilotStop.Location = new Point(755, 145);
+            btnPilotStop.Location = new Point(730, 190);
             btnPilotStop.Name = "btnPilotStop";
             btnPilotStop.Size = new Size(100, 42);
             btnPilotStop.Text = "멈춤";
@@ -672,7 +727,7 @@ namespace DonkeycarManager
             picPilotTest.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             picPilotTest.BackColor = Color.Black;
             picPilotTest.BorderStyle = BorderStyle.FixedSingle;
-            picPilotTest.Location = new Point(30, 220);
+            picPilotTest.Location = new Point(30, 250);
             picPilotTest.Name = "picPilotTest";
             picPilotTest.Size = new Size(550, 450);
             picPilotTest.SizeMode = PictureBoxSizeMode.Zoom;
@@ -680,31 +735,31 @@ namespace DonkeycarManager
 
             lblActualAngle.AutoSize = true;
             lblActualAngle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            lblActualAngle.Location = new Point(610, 230);
+            lblActualAngle.Location = new Point(610, 250);
             lblActualAngle.Name = "lblActualAngle";
             lblActualAngle.Text = "실제 Angle: -";
 
             lblPredictedAngle.AutoSize = true;
             lblPredictedAngle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            lblPredictedAngle.Location = new Point(610, 270);
+            lblPredictedAngle.Location = new Point(610, 295);
             lblPredictedAngle.Name = "lblPredictedAngle";
             lblPredictedAngle.Text = "예측 Angle: -";
 
             lblActualThrottle.AutoSize = true;
             lblActualThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            lblActualThrottle.Location = new Point(610, 320);
+            lblActualThrottle.Location = new Point(610, 350);
             lblActualThrottle.Name = "lblActualThrottle";
             lblActualThrottle.Text = "실제 Throttle: -";
 
             lblPredictedThrottle.AutoSize = true;
             lblPredictedThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            lblPredictedThrottle.Location = new Point(610, 355);
+            lblPredictedThrottle.Location = new Point(610, 390);
             lblPredictedThrottle.Name = "lblPredictedThrottle";
             lblPredictedThrottle.Text = "예측 Throttle: -";
 
             lblAngleError.AutoSize = true;
             lblAngleError.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            lblAngleError.Location = new Point(610, 405);
+            lblAngleError.Location = new Point(610, 445);
             lblAngleError.Name = "lblAngleError";
             lblAngleError.Text = "Angle Error: -";
 
@@ -716,7 +771,7 @@ namespace DonkeycarManager
             lblPilotWarning.Text = "판정: -";
 
             lblPilotNote.ForeColor = Color.DimGray;
-            lblPilotNote.Location = new Point(610, 500);
+            lblPilotNote.Location = new Point(610, 540);
             lblPilotNote.Name = "lblPilotNote";
             lblPilotNote.Size = new Size(240, 150);
             lblPilotNote.Text =
@@ -729,7 +784,7 @@ namespace DonkeycarManager
 
             lblPilotImageList.AutoSize = true;
             lblPilotImageList.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            lblPilotImageList.Location = new Point(880, 200);
+            lblPilotImageList.Location = new Point(880, 250);
             lblPilotImageList.Name = "lblPilotImageList";
             lblPilotImageList.Text = "테스트 이미지 선택";
 
@@ -737,10 +792,26 @@ namespace DonkeycarManager
             lstPilotFrames.Font = new Font("Consolas", 10F);
             lstPilotFrames.HorizontalScrollbar = true;
             lstPilotFrames.ItemHeight = 20;
-            lstPilotFrames.Location = new Point(880, 230);
+            lstPilotFrames.Location = new Point(880, 280);
             lstPilotFrames.Name = "lstPilotFrames";
             lstPilotFrames.SelectionMode = SelectionMode.One;
-            lstPilotFrames.Size = new Size(480, 440);
+            lstPilotFrames.Size = new Size(480, 390);
+
+            lblModelList.AutoSize = true;
+            lblModelList.Location = new Point(30, 145);
+            lblModelList.Name = "lblModelList";
+            lblModelList.Text = "모델 목록";
+
+            cmbModelList.Location = new Point(120, 141);
+            cmbModelList.Name = "cmbModelList";
+            cmbModelList.Size = new Size(540, 30);
+            cmbModelList.DropDownStyle = ComboBoxStyle.DropDownList;
+
+            btnScanModels.Location = new Point(675, 140);
+            btnScanModels.Name = "btnScanModels";
+            btnScanModels.Size = new Size(100, 34);
+            btnScanModels.Text = "모델 스캔";
+            btnScanModels.UseVisualStyleBackColor = true;
 
             tabPilotTest.Controls.Add(lblTitlePilot);
             tabPilotTest.Controls.Add(lblModelPath);
@@ -760,6 +831,9 @@ namespace DonkeycarManager
             tabPilotTest.Controls.Add(lblPilotNote);
             tabPilotTest.Controls.Add(lblPilotImageList);
             tabPilotTest.Controls.Add(lstPilotFrames);
+            tabPilotTest.Controls.Add(lblModelList);
+            tabPilotTest.Controls.Add(cmbModelList);
+            tabPilotTest.Controls.Add(btnScanModels);
 
             txtLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtLog.Font = new Font("Consolas", 9F);
@@ -773,6 +847,8 @@ namespace DonkeycarManager
             Controls.Add(tabMain);
             Controls.Add(txtLog);
 
+            ((System.ComponentModel.ISupportInitialize)trbBrightness).EndInit();
+            ((System.ComponentModel.ISupportInitialize)trbContrast).EndInit();
             ((System.ComponentModel.ISupportInitialize)picFrame).EndInit();
             ((System.ComponentModel.ISupportInitialize)picCleanerPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)picPilotTest).EndInit();
