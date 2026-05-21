@@ -401,7 +401,7 @@ namespace DonkeycarManager
             DialogResult result = MessageBox.Show(
                 $"선택 구간 {start + 1} ~ {end + 1}의 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
                 "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 data 폴더 백업을 권장합니다.",
+                "삭제 전 data 폴더 백업파일을 생성합니다 ",
                 "구간 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
@@ -423,6 +423,10 @@ namespace DonkeycarManager
                 DisposeCurrentImages();
 
                 HashSet<string> deleteKeys = new HashSet<string>();
+                
+                // 삭제 이미지 백업 폴더 경로 설정 생성
+                string imgBackupRoot = Path.Combine(dataFolderPath, "images_backup");
+                string imgBackupDir = Path.Combine(imgBackupRoot, DateTime.Now.ToString("yyyyMMdd_HHmmss"));
 
                 foreach (DonkeyFrame frame in framesToDelete)
                 {
@@ -433,8 +437,18 @@ namespace DonkeycarManager
 
                     if (File.Exists(imagePath))
                     {
+                        // 삭제할 파일이 존재하면 백업 폴더 생성 후 복사
+                        if (!Directory.Exists(imgBackupDir))
+                        {
+                            Directory.CreateDirectory(imgBackupDir);
+                            AppendLog($"삭제 이미지 백업 폴더 생성: {imgBackupDir}");
+                        }
+
+                        string backupPath = Path.Combine(imgBackupDir, frame.ImageFileName);
+                        File.Copy(imagePath, backupPath, true);
+
                         File.Delete(imagePath);
-                        AppendLog($"{logTitle} 이미지 삭제: {frame.ImageFileName}");
+                        AppendLog($"{logTitle} 이미지 백업 및 삭제: {frame.ImageFileName}");
                     }
                     else
                     {
