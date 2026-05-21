@@ -1042,6 +1042,23 @@ namespace DonkeycarManager
 
             bool useWsl = IsWslMode(pythonExe);
 
+            if (!string.IsNullOrWhiteSpace(dataFolderPath) && useWsl)
+            {
+                string wslDataPath = ConvertPathToWslPath(dataFolderPath);
+                trainArgs = System.Text.RegularExpressions.Regex.Replace(
+                    trainArgs,
+                    @"--tub\s+\S+",
+                    $"--tub {wslDataPath}"
+                );
+                AppendLog($"[정보] --tub 경로 자동 변환: {wslDataPath}");
+            }
+            else if (string.IsNullOrWhiteSpace(dataFolderPath))
+            {
+                AppendLog("[경고] 데이터 폴더가 선택되지 않았습니다.");
+                MessageBox.Show("Viewer 탭에서 Donkeycar data 폴더를 먼저 열어주세요.");
+                return;
+            }
+
             if (!useWsl && !Directory.Exists(mycarPath))
             {
                 MessageBox.Show(
@@ -1052,6 +1069,8 @@ namespace DonkeycarManager
             }
 
             txtLog.Clear();
+
+            await EnsurePredictOneScriptAsync();
 
             AppendLog("학습 시작");
             AppendLog("실행 방식: " + (useWsl ? "WSL + Conda" : "Windows Python"));
@@ -1122,6 +1141,93 @@ namespace DonkeycarManager
                 );
             }
         }
+
+
+        private async Task EnsurePredictOneScriptAsync()
+        {
+            string scriptContent =
+                "import os\n" +
+                "os.environ[\"TF_CPP_MIN_LOG_LEVEL\"] = \"2\"\n" +
+                "import argparse\n" +
+                "import json\n" +
+                "from pathlib import Path\n" +
+                "import numpy as np\n" +
+                "from PIL import Image\n" +
+                "from tensorflow.keras.models import load_model\n" +
+                "\n" +
+                "def prepare_image(image_path):\n" +
+                "    img = Image.open(image_path).convert(\"RGB\")\n" +
+                "    img = img.resize((160, 120))\n" +
+                "    arr = np.asarray(img, dtype=np.float32) / 255.0\n" +
+                "    arr = arr.reshape((1, 120, 160, 3))\n" +
+                "    return arr\n" +
+                "\n" +
+                "def parse_prediction(pred):\n" +
+                "    if isinstance(pred, list):\n" +
+                "        angle = float(np.squeeze(pred[0]))\n" +
+                "        if len(pred) > 1:\n" +
+                "            throttle = float(np.squeeze(pred[1]))\n" +
+                "        else:\n" +
+                "            throttle = 0.0\n" +
+                "        return angle, throttle\n" +
+                "    arr = np.asarray(pred).reshape(-1)\n" +
+                "    if arr.size >= 2:\n" +
+                "        return float(arr[0]), float(arr[1])\n" +
+                "    if arr.size == 1:\n" +
+                "        return float(arr[0]), 0.0\n" +
+                "    return 0.0, 0.0\n" +
+                "\n" +
+                "def main():\n" +
+                "    parser = argparse.ArgumentParser()\n" +
+                "    parser.add_argument(\"--model\", required=True)\n" +
+                "    parser.add_argument(\"--image\", required=True)\n" +
+                "    args = parser.parse_args()\n" +
+                "    model_path = Path(args.model).expanduser()\n" +
+                "    image_path = Path(args.image).expanduser()\n" +
+                "    if not model_path.exists():\n" +
+                "        print(json.dumps({\"ok\": False, \"error\": f\"Model file not found: {model_path}\"}))\n" +
+                "        return\n" +
+                "    if not image_path.exists():\n" +
+                "        print(json.dumps({\"ok\": False, \"error\": f\"Image file not found: {image_path}\"}))\n" +
+                "        return\n" +
+                "    model = load_model(model_path, compile=False)\n" +
+                "    x = prepare_image(image_path)\n" +
+                "    pred = model.predict(x, verbose=0)\n" +
+                "    angle, throttle = parse_prediction(pred)\n" +
+                "    print(json.dumps({\"ok\": True, \"angle\": angle, \"throttle\": throttle, \"model\": str(model_path), \"image\": str(image_path)}))\n" +
+                "\n" +
+                "if __name__ == \"__main__\":\n" +
+                "    main()\n";
+
+            string tempPath = Path.Combine(Path.GetTempPath(), "predict_one.py");
+            File.WriteAllText(tempPath, scriptContent, new System.Text.UTF8Encoding(false));
+
+            string wslTempPath = ConvertPathToWslPath(tempPath);
+            string command = $"cp {BashQuote(wslTempPath)} ~/mycar/predict_one.py";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            await Task.Run(() => process.WaitForExit());
+
+            if (process.ExitCode == 0)
+                AppendLog("[정보] predict_one.py 자동 생성 완료");
+            else
+                AppendLog("[경고] predict_one.py 자동 생성 실패 - 수동으로 넣어주세요");
+        }
+
+
 
         private void btnStopTrain_Click(object? sender, EventArgs e)
         {
