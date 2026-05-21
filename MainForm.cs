@@ -29,11 +29,19 @@ namespace DonkeycarManager
 
         private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
+        private readonly System.Windows.Forms.Timer cleanerAutoPlayTimer = new System.Windows.Forms.Timer();
+        private readonly System.Windows.Forms.Timer pilotAutoPlayTimer = new System.Windows.Forms.Timer();
+
+        private readonly Dictionary<string, Bitmap> cleanerTimelineThumbCache = new Dictionary<string, Bitmap>();
 
         private const string WslDistroName = "Ubuntu-22.04";
         private const string CondaEnvName = "e2e_env";
-
         private const int CatalogChunkSize = 1000;
+
+        private const int CleanerTimelineThumbWidth = 82;
+        private const int CleanerTimelineThumbGap = 4;
+
+        private int cleanerTimelineStartIndex = 0;
 
         private double? overlayActualAngle = null;
         private double? overlayPredictedAngle = null;
@@ -61,6 +69,12 @@ namespace DonkeycarManager
             cleanerRangePlayTimer.Interval = 120;
             cleanerRangePlayTimer.Tick += CleanerRangePlayTimer_Tick;
 
+            cleanerAutoPlayTimer.Interval = 120;
+            cleanerAutoPlayTimer.Tick += CleanerAutoPlayTimer_Tick;
+
+            pilotAutoPlayTimer.Interval = 120;
+            pilotAutoPlayTimer.Tick += PilotAutoPlayTimer_Tick;
+
             picPilotTest.Paint += picPilotTest_Paint;
             picPilotTest.Resize += (s, e) => picPilotTest.Invalidate();
 
@@ -82,9 +96,14 @@ namespace DonkeycarManager
             pnlCleanerTimeline.MouseMove += pnlCleanerTimeline_MouseMove;
             pnlCleanerTimeline.MouseUp += pnlCleanerTimeline_MouseUp;
 
+            hsbCleanerTimeline.Scroll += hsbCleanerTimeline_Scroll;
+
             btnDeleteRange.Click += btnDeleteRange_Click;
             btnPlayRange.Click += btnPlayRange_Click;
             btnClearRange.Click += btnClearRange_Click;
+
+            btnCleanerAutoPlay.Click += btnCleanerAutoPlay_Click;
+            btnCleanerStop.Click += btnCleanerStop_Click;
 
             btnBrowseMycar.Click += btnBrowseMycar_Click;
             btnTrain.Click += btnTrain_Click;
@@ -93,6 +112,9 @@ namespace DonkeycarManager
             btnBrowseModel.Click += btnBrowseModel_Click;
             btnRunPilotTest.Click += btnRunPilotTest_Click;
             btnUseViewerFrame.Click += btnUseViewerFrame_Click;
+
+            btnPilotAutoPlay.Click += btnPilotAutoPlay_Click;
+            btnPilotStop.Click += btnPilotStop_Click;
 
             lstFrames.SelectedIndexChanged += lstFrames_SelectedIndexChanged;
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
@@ -164,6 +186,15 @@ namespace DonkeycarManager
             if (visibleFrames.Count == 0)
                 return;
 
+            cleanerAutoPlayTimer.Stop();
+            pilotAutoPlayTimer.Stop();
+
+            if (btnCleanerAutoPlay != null)
+                btnCleanerAutoPlay.Text = "자동 재생";
+
+            if (btnPilotAutoPlay != null)
+                btnPilotAutoPlay.Text = "자동 재생";
+
             autoPlayTimer.Enabled = !autoPlayTimer.Enabled;
             btnAutoPlay.Text = autoPlayTimer.Enabled ? "자동 재생 중지" : "자동 재생";
         }
@@ -179,6 +210,114 @@ namespace DonkeycarManager
                 next = 0;
 
             ShowFrame(next);
+        }
+
+        private void btnCleanerAutoPlay_Click(object? sender, EventArgs e)
+        {
+            if (visibleFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어주세요.");
+                return;
+            }
+
+            autoPlayTimer.Stop();
+            pilotAutoPlayTimer.Stop();
+
+            if (btnAutoPlay != null)
+                btnAutoPlay.Text = "자동 재생";
+
+            if (btnPilotAutoPlay != null)
+                btnPilotAutoPlay.Text = "자동 재생";
+
+            cleanerAutoPlayTimer.Enabled = !cleanerAutoPlayTimer.Enabled;
+            btnCleanerAutoPlay.Text = cleanerAutoPlayTimer.Enabled ? "재생 중" : "자동 재생";
+
+            AppendLog(cleanerAutoPlayTimer.Enabled ? "Cleaner 자동 재생 시작" : "Cleaner 자동 재생 일시정지");
+        }
+
+        private void btnCleanerStop_Click(object? sender, EventArgs e)
+        {
+            StopCleanerAutoPlay();
+        }
+
+        private void CleanerAutoPlayTimer_Tick(object? sender, EventArgs e)
+        {
+            if (visibleFrames.Count == 0)
+            {
+                StopCleanerAutoPlay();
+                return;
+            }
+
+            int next = currentIndex + 1;
+
+            if (next < 0 || next >= visibleFrames.Count)
+                next = 0;
+
+            ShowFrame(next);
+        }
+
+        private void StopCleanerAutoPlay()
+        {
+            cleanerAutoPlayTimer.Stop();
+
+            if (btnCleanerAutoPlay != null)
+                btnCleanerAutoPlay.Text = "자동 재생";
+
+            AppendLog("Cleaner 자동 재생 멈춤");
+        }
+
+        private void btnPilotAutoPlay_Click(object? sender, EventArgs e)
+        {
+            if (visibleFrames.Count == 0)
+            {
+                MessageBox.Show("먼저 데이터 폴더를 열어주세요.");
+                return;
+            }
+
+            autoPlayTimer.Stop();
+            cleanerAutoPlayTimer.Stop();
+
+            if (btnAutoPlay != null)
+                btnAutoPlay.Text = "자동 재생";
+
+            if (btnCleanerAutoPlay != null)
+                btnCleanerAutoPlay.Text = "자동 재생";
+
+            pilotAutoPlayTimer.Enabled = !pilotAutoPlayTimer.Enabled;
+            btnPilotAutoPlay.Text = pilotAutoPlayTimer.Enabled ? "재생 중" : "자동 재생";
+
+            AppendLog(pilotAutoPlayTimer.Enabled ? "Pilot Test 자동 재생 시작" : "Pilot Test 자동 재생 일시정지");
+        }
+
+        private void btnPilotStop_Click(object? sender, EventArgs e)
+        {
+            StopPilotAutoPlay();
+        }
+
+        private void PilotAutoPlayTimer_Tick(object? sender, EventArgs e)
+        {
+            if (visibleFrames.Count == 0)
+            {
+                StopPilotAutoPlay();
+                return;
+            }
+
+            int next = currentIndex + 1;
+
+            if (next < 0 || next >= visibleFrames.Count)
+                next = 0;
+
+            ShowFrame(next);
+        }
+
+        private void StopPilotAutoPlay()
+        {
+            pilotAutoPlayTimer.Stop();
+
+            if (btnPilotAutoPlay != null)
+                btnPilotAutoPlay.Text = "자동 재생";
+
+            AppendLog("Pilot Test 자동 재생 멈춤");
         }
 
         private void btnApplyFilter_Click(object? sender, EventArgs e)
@@ -278,6 +417,9 @@ namespace DonkeycarManager
         {
             try
             {
+                StopCleanerAutoPlay();
+                StopPilotAutoPlay();
+
                 DisposeCurrentImages();
 
                 HashSet<string> deleteKeys = new HashSet<string>();
@@ -301,6 +443,8 @@ namespace DonkeycarManager
                 }
 
                 int removedCount = allFrames.RemoveAll(f => deleteKeys.Contains(MakeFrameKey(f)));
+
+                ClearCleanerTimelineThumbnailCache();
 
                 SaveCatalog();
 
@@ -328,6 +472,9 @@ namespace DonkeycarManager
                 MessageBox.Show("먼저 타임라인에서 재생할 구간을 드래그해서 선택하세요.");
                 return;
             }
+
+            StopCleanerAutoPlay();
+            StopPilotAutoPlay();
 
             if (cleanerRangePlayTimer.Enabled)
             {
@@ -424,13 +571,24 @@ namespace DonkeycarManager
             pnlCleanerTimeline.Invalidate();
         }
 
+        private void hsbCleanerTimeline_Scroll(object? sender, ScrollEventArgs e)
+        {
+            int maxStart = GetCleanerTimelineMaxStartIndex();
+            cleanerTimelineStartIndex = Math.Max(0, Math.Min(e.NewValue, maxStart));
+
+            UpdateCleanerTimelineScrollBar();
+            pnlCleanerTimeline.Invalidate();
+        }
+
         private int HitTestCleanerTimelineIndex(int mouseX)
         {
             if (visibleFrames.Count == 0)
                 return -1;
 
-            Rectangle rect = pnlCleanerTimeline.ClientRectangle;
-            rect.Inflate(-6, -8);
+            Rectangle rect = GetCleanerTimelineTrackRect();
+
+            if (rect == Rectangle.Empty)
+                return -1;
 
             if (mouseX < rect.Left)
                 mouseX = rect.Left;
@@ -438,8 +596,10 @@ namespace DonkeycarManager
             if (mouseX > rect.Right)
                 mouseX = rect.Right;
 
-            double ratio = (double)(mouseX - rect.Left) / Math.Max(1, rect.Width);
-            int index = (int)(ratio * visibleFrames.Count);
+            int slotWidth = CleanerTimelineThumbWidth + CleanerTimelineThumbGap;
+            int slot = (mouseX - rect.Left) / slotWidth;
+
+            int index = cleanerTimelineStartIndex + slot;
 
             if (index < 0)
                 index = 0;
@@ -518,72 +678,330 @@ namespace DonkeycarManager
         {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            Rectangle rect = pnlCleanerTimeline.ClientRectangle;
-            rect.Inflate(-6, -8);
+            g.InterpolationMode = InterpolationMode.HighQualityBilinear;
 
             using SolidBrush bgBrush = new SolidBrush(Color.FromArgb(18, 26, 42));
             g.FillRectangle(bgBrush, pnlCleanerTimeline.ClientRectangle);
 
+            Rectangle trackRect = GetCleanerTimelineTrackRect();
+
             if (visibleFrames.Count == 0)
             {
-                using Font font = new Font("맑은 고딕", 9, FontStyle.Bold);
+                using Font font = new Font("맑은 고딕", 10, FontStyle.Bold);
                 using SolidBrush brush = new SolidBrush(Color.White);
                 g.DrawString("로드된 프레임이 없습니다.", font, brush, 12, 12);
                 return;
             }
 
-            int count = visibleFrames.Count;
-            float itemWidth = Math.Max(1f, (float)rect.Width / count);
+            DrawCleanerImageTimeline(g, trackRect);
+            DrawCleanerSelectedRange(g, trackRect);
+            DrawCleanerCurrentFrameMarker(g, trackRect);
+            DrawCleanerTimelineBorder(g, trackRect);
+        }
 
-            for (int i = 0; i < count; i++)
+        private Rectangle GetCleanerTimelineTrackRect()
+        {
+            Rectangle rect = pnlCleanerTimeline.ClientRectangle;
+            rect.Inflate(-8, -8);
+
+            if (rect.Width < 10 || rect.Height < 10)
+                return Rectangle.Empty;
+
+            return rect;
+        }
+
+        private int GetCleanerTimelineVisibleSlotCount()
+        {
+            Rectangle rect = GetCleanerTimelineTrackRect();
+
+            if (rect == Rectangle.Empty)
+                return 1;
+
+            int slotWidth = CleanerTimelineThumbWidth + CleanerTimelineThumbGap;
+            int count = Math.Max(1, rect.Width / slotWidth);
+
+            return count;
+        }
+
+        private int GetCleanerTimelineMaxStartIndex()
+        {
+            if (visibleFrames.Count == 0)
+                return 0;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+            return Math.Max(0, visibleFrames.Count - visibleSlotCount);
+        }
+
+        private void UpdateCleanerTimelineScrollBar()
+        {
+            if (hsbCleanerTimeline == null)
+                return;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+            int maxStart = GetCleanerTimelineMaxStartIndex();
+
+            cleanerTimelineStartIndex = Math.Max(0, Math.Min(cleanerTimelineStartIndex, maxStart));
+
+            hsbCleanerTimeline.Enabled = visibleFrames.Count > visibleSlotCount;
+
+            hsbCleanerTimeline.Minimum = 0;
+            hsbCleanerTimeline.SmallChange = 1;
+            hsbCleanerTimeline.LargeChange = Math.Max(1, visibleSlotCount);
+            hsbCleanerTimeline.Maximum = maxStart + hsbCleanerTimeline.LargeChange - 1;
+
+            int safeValue = Math.Max(hsbCleanerTimeline.Minimum, Math.Min(cleanerTimelineStartIndex, hsbCleanerTimeline.Maximum));
+
+            if (hsbCleanerTimeline.Value != safeValue)
+                hsbCleanerTimeline.Value = safeValue;
+
+            if (lblCleanerTimelineScrollInfo != null)
             {
-                DonkeyFrame frame = visibleFrames[i];
-
-                float x = rect.Left + i * itemWidth;
-                float w = Math.Max(1f, itemWidth);
-
-                Color frameColor;
-
-                if (Math.Abs(frame.Throttle) <= 0.000001)
-                    frameColor = Color.FromArgb(80, 80, 80);
-                else if (Math.Abs(frame.Angle) <= 0.000001)
-                    frameColor = Color.FromArgb(70, 95, 130);
-                else if (frame.Angle > 0)
-                    frameColor = Color.FromArgb(85, 120, 180);
+                if (visibleFrames.Count == 0)
+                {
+                    lblCleanerTimelineScrollInfo.Text = "표시 구간: -";
+                }
                 else
-                    frameColor = Color.FromArgb(55, 85, 135);
+                {
+                    int viewStart = cleanerTimelineStartIndex + 1;
+                    int viewEnd = Math.Min(visibleFrames.Count, cleanerTimelineStartIndex + visibleSlotCount);
 
-                using SolidBrush frameBrush = new SolidBrush(frameColor);
-                g.FillRectangle(frameBrush, x, rect.Top, w, rect.Height);
+                    lblCleanerTimelineScrollInfo.Text =
+                        $"표시 구간: {viewStart} ~ {viewEnd} / {visibleFrames.Count}";
+                }
             }
+        }
 
-            if (TryGetNormalizedCleanerRange(out int start, out int end))
+        private void EnsureCleanerTimelineFrameVisible(int index)
+        {
+            if (index < 0 || index >= visibleFrames.Count)
+                return;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+
+            if (index < cleanerTimelineStartIndex)
             {
-                float startX = rect.Left + start * itemWidth;
-                float endX = rect.Left + (end + 1) * itemWidth;
-
-                using SolidBrush rangeBrush = new SolidBrush(Color.FromArgb(120, 245, 180, 45));
-                using Pen rangePen = new Pen(Color.FromArgb(245, 180, 45), 3);
-
-                g.FillRectangle(rangeBrush, startX, rect.Top, endX - startX, rect.Height);
-                g.DrawRectangle(rangePen, startX, rect.Top, endX - startX, rect.Height);
-
-                using Pen handlePen = new Pen(Color.FromArgb(255, 230, 80), 4);
-                g.DrawLine(handlePen, startX, rect.Top - 3, startX, rect.Bottom + 3);
-                g.DrawLine(handlePen, endX, rect.Top - 3, endX, rect.Bottom + 3);
+                cleanerTimelineStartIndex = index;
             }
-
-            if (currentIndex >= 0 && currentIndex < count)
+            else if (index >= cleanerTimelineStartIndex + visibleSlotCount)
             {
-                float currentX = rect.Left + currentIndex * itemWidth;
-
-                using Pen currentPen = new Pen(Color.White, 2);
-                g.DrawLine(currentPen, currentX, rect.Top - 5, currentX, rect.Bottom + 5);
+                cleanerTimelineStartIndex = index - visibleSlotCount + 1;
             }
 
-            using Pen borderPen = new Pen(Color.FromArgb(120, 255, 255, 255));
-            g.DrawRectangle(borderPen, rect);
+            cleanerTimelineStartIndex = Math.Max(0, Math.Min(cleanerTimelineStartIndex, GetCleanerTimelineMaxStartIndex()));
+            UpdateCleanerTimelineScrollBar();
+        }
+
+        private void DrawCleanerImageTimeline(Graphics g, Rectangle trackRect)
+        {
+            if (trackRect == Rectangle.Empty || visibleFrames.Count == 0)
+                return;
+
+            int labelHeight = 18;
+            int thumbHeight = Math.Max(30, trackRect.Height - labelHeight);
+            int slotWidth = CleanerTimelineThumbWidth + CleanerTimelineThumbGap;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+            int maxSlotCount = Math.Min(visibleSlotCount, visibleFrames.Count - cleanerTimelineStartIndex);
+
+            using Font indexFont = new Font("Consolas", 7F, FontStyle.Bold);
+            using SolidBrush textBrush = new SolidBrush(Color.White);
+            using SolidBrush missingBrush = new SolidBrush(Color.FromArgb(55, 65, 85));
+            using Pen normalPen = new Pen(Color.FromArgb(80, 255, 255, 255), 1);
+
+            for (int slot = 0; slot < maxSlotCount; slot++)
+            {
+                int frameIndex = cleanerTimelineStartIndex + slot;
+
+                if (frameIndex < 0 || frameIndex >= visibleFrames.Count)
+                    continue;
+
+                DonkeyFrame frame = visibleFrames[frameIndex];
+
+                int x = trackRect.Left + slot * slotWidth;
+                Rectangle thumbRect = new Rectangle(x, trackRect.Top, CleanerTimelineThumbWidth, thumbHeight);
+
+                try
+                {
+                    Bitmap? thumb = GetCleanerTimelineThumbnail(frame, thumbRect.Size);
+
+                    if (thumb != null)
+                    {
+                        g.DrawImage(thumb, thumbRect);
+                    }
+                    else
+                    {
+                        g.FillRectangle(missingBrush, thumbRect);
+                        g.DrawString("No Image", indexFont, textBrush, thumbRect.Left + 8, thumbRect.Top + 16);
+                    }
+                }
+                catch
+                {
+                    g.FillRectangle(missingBrush, thumbRect);
+                    g.DrawString("Error", indexFont, textBrush, thumbRect.Left + 20, thumbRect.Top + 16);
+                }
+
+                g.DrawRectangle(normalPen, thumbRect);
+
+                string indexText = frame.Index.ToString("D4");
+                g.DrawString(indexText, indexFont, textBrush, thumbRect.Left + 4, thumbRect.Bottom + 2);
+            }
+        }
+
+        private Bitmap? GetCleanerTimelineThumbnail(DonkeyFrame frame, Size targetSize)
+        {
+            if (string.IsNullOrWhiteSpace(imagesFolderPath))
+                return null;
+
+            string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+
+            if (!File.Exists(imagePath))
+                return null;
+
+            string cacheKey = imagePath + "|" + targetSize.Width + "x" + targetSize.Height;
+
+            if (cleanerTimelineThumbCache.TryGetValue(cacheKey, out Bitmap? cached))
+                return cached;
+
+            if (cleanerTimelineThumbCache.Count > 350)
+                ClearCleanerTimelineThumbnailCache();
+
+            byte[] bytes = File.ReadAllBytes(imagePath);
+
+            using MemoryStream ms = new MemoryStream(bytes);
+            using Bitmap source = new Bitmap(ms);
+
+            Bitmap thumb = new Bitmap(targetSize.Width, targetSize.Height);
+
+            using (Graphics tg = Graphics.FromImage(thumb))
+            {
+                tg.Clear(Color.Black);
+                tg.SmoothingMode = SmoothingMode.AntiAlias;
+                tg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                tg.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                Rectangle dest = GetImageContainRectangle(
+                    new Size(source.Width, source.Height),
+                    new Rectangle(0, 0, targetSize.Width, targetSize.Height)
+                );
+
+                tg.DrawImage(source, dest);
+            }
+
+            cleanerTimelineThumbCache[cacheKey] = thumb;
+            return thumb;
+        }
+
+        private Rectangle GetImageContainRectangle(Size imageSize, Rectangle box)
+        {
+            if (imageSize.Width <= 0 || imageSize.Height <= 0 || box.Width <= 0 || box.Height <= 0)
+                return Rectangle.Empty;
+
+            double imageRatio = imageSize.Width / (double)imageSize.Height;
+            double boxRatio = box.Width / (double)box.Height;
+
+            int width;
+            int height;
+
+            if (imageRatio > boxRatio)
+            {
+                width = box.Width;
+                height = (int)(box.Width / imageRatio);
+            }
+            else
+            {
+                height = box.Height;
+                width = (int)(box.Height * imageRatio);
+            }
+
+            int x = box.Left + (box.Width - width) / 2;
+            int y = box.Top + (box.Height - height) / 2;
+
+            return new Rectangle(x, y, width, height);
+        }
+
+        private void DrawCleanerSelectedRange(Graphics g, Rectangle trackRect)
+        {
+            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+                return;
+
+            if (visibleFrames.Count == 0)
+                return;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+            int viewStart = cleanerTimelineStartIndex;
+            int viewEnd = Math.Min(visibleFrames.Count - 1, cleanerTimelineStartIndex + visibleSlotCount - 1);
+
+            if (end < viewStart || start > viewEnd)
+                return;
+
+            int drawStart = Math.Max(start, viewStart);
+            int drawEnd = Math.Min(end, viewEnd);
+
+            Rectangle startRect = GetCleanerFrameSlotRectangle(drawStart, trackRect);
+            Rectangle endRect = GetCleanerFrameSlotRectangle(drawEnd, trackRect);
+
+            int x = startRect.Left;
+            int right = endRect.Right;
+            int width = Math.Max(4, right - x);
+
+            using SolidBrush rangeBrush = new SolidBrush(Color.FromArgb(105, 255, 190, 40));
+            using Pen rangePen = new Pen(Color.FromArgb(255, 190, 40), 3);
+
+            g.FillRectangle(rangeBrush, x, trackRect.Top, width, trackRect.Height);
+            g.DrawRectangle(rangePen, x, trackRect.Top, width, trackRect.Height);
+
+            using Pen handlePen = new Pen(Color.FromArgb(255, 230, 80), 4);
+            g.DrawLine(handlePen, x, trackRect.Top - 4, x, trackRect.Bottom + 4);
+            g.DrawLine(handlePen, x + width, trackRect.Top - 4, x + width, trackRect.Bottom + 4);
+        }
+
+        private void DrawCleanerCurrentFrameMarker(Graphics g, Rectangle trackRect)
+        {
+            if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
+                return;
+
+            int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
+            int viewStart = cleanerTimelineStartIndex;
+            int viewEnd = Math.Min(visibleFrames.Count - 1, cleanerTimelineStartIndex + visibleSlotCount - 1);
+
+            if (currentIndex < viewStart || currentIndex > viewEnd)
+                return;
+
+            Rectangle frameRect = GetCleanerFrameSlotRectangle(currentIndex, trackRect);
+            float x = frameRect.Left + frameRect.Width / 2f;
+
+            using Pen currentPen = new Pen(Color.White, 3);
+            using SolidBrush markerBrush = new SolidBrush(Color.White);
+
+            g.DrawLine(currentPen, x, trackRect.Top - 5, x, trackRect.Bottom + 5);
+            g.FillEllipse(markerBrush, x - 5, trackRect.Top - 8, 10, 10);
+        }
+
+        private Rectangle GetCleanerFrameSlotRectangle(int frameIndex, Rectangle trackRect)
+        {
+            int slot = frameIndex - cleanerTimelineStartIndex;
+            int slotWidth = CleanerTimelineThumbWidth + CleanerTimelineThumbGap;
+
+            int labelHeight = 18;
+            int thumbHeight = Math.Max(30, trackRect.Height - labelHeight);
+
+            int x = trackRect.Left + slot * slotWidth;
+
+            return new Rectangle(x, trackRect.Top, CleanerTimelineThumbWidth, thumbHeight);
+        }
+
+        private void DrawCleanerTimelineBorder(Graphics g, Rectangle trackRect)
+        {
+            using Pen borderPen = new Pen(Color.FromArgb(160, 255, 255, 255), 1);
+            g.DrawRectangle(borderPen, trackRect);
+        }
+
+        private void ClearCleanerTimelineThumbnailCache()
+        {
+            foreach (Bitmap bmp in cleanerTimelineThumbCache.Values)
+                bmp.Dispose();
+
+            cleanerTimelineThumbCache.Clear();
         }
 
         private void btnBrowseMycar_Click(object? sender, EventArgs e)
@@ -886,6 +1304,7 @@ namespace DonkeycarManager
         private void LoadCatalog()
         {
             allFrames.Clear();
+            ClearCleanerTimelineThumbnailCache();
 
             try
             {
@@ -1036,6 +1455,9 @@ namespace DonkeycarManager
 
             isUpdatingSelection = false;
 
+            cleanerTimelineStartIndex = 0;
+            UpdateCleanerTimelineScrollBar();
+
             pnlCleanerTimeline.Invalidate();
             UpdateCleanerRangeUi();
         }
@@ -1105,6 +1527,7 @@ namespace DonkeycarManager
 
             isUpdatingSelection = false;
 
+            EnsureCleanerTimelineFrameVisible(index);
             pnlCleanerTimeline.Invalidate();
         }
 
@@ -1197,6 +1620,8 @@ namespace DonkeycarManager
             trbFrame.Maximum = 0;
             trbFrame.Value = 0;
 
+            cleanerTimelineStartIndex = 0;
+            UpdateCleanerTimelineScrollBar();
             ResetCleanerRange();
         }
 
@@ -1806,10 +2231,18 @@ namespace DonkeycarManager
                 cleanerRangePlayTimer.Stop();
                 cleanerRangePlayTimer.Dispose();
 
+                cleanerAutoPlayTimer.Stop();
+                cleanerAutoPlayTimer.Dispose();
+
+                pilotAutoPlayTimer.Stop();
+                pilotAutoPlayTimer.Dispose();
+
                 if (trainProcess != null && !trainProcess.HasExited)
                     trainProcess.Kill(true);
 
                 trainProcess?.Dispose();
+
+                ClearCleanerTimelineThumbnailCache();
                 DisposeCurrentImages();
             }
             catch

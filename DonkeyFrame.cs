@@ -25,4 +25,4 @@ namespace DonkeycarManager
         [JsonPropertyName("user/throttle")]
         public double Throttle { get; set; }
     }
-}  
+}
