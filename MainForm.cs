@@ -60,11 +60,8 @@ namespace DonkeycarManager
 
             txtMycarPath.Text = "~/mycar";
             txtPythonExe.Text = "wsl";
-
-            // Generate a filename with the current date/time to avoid overwriting models
-            string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            txtTrainArgs.Text = $"train.py --tub ./data --model ./models/mypilot_{timeStamp}.h5";
-            txtModelPath.Text = $"~/mycar/models/mypilot_{timeStamp}.h5";
+            txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
+            txtModelPath.Text = "~/mycar/models/mypilot.h5";
 
             autoPlayTimer.Interval = 150;
             autoPlayTimer.Tick += AutoPlayTimer_Tick;
@@ -2271,6 +2268,26 @@ namespace DonkeycarManager
             }
 
             base.OnFormClosed(e);
+        }
+
+        private void TbtnView_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 0;
+        }
+
+        private void TbtnClean_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 1;
+        }
+
+        private void TbtnTrain_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 2;
+        }
+
+        private void TbtnPilot_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 3;
         }
     }
 }
