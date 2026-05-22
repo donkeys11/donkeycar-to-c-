@@ -127,6 +127,11 @@ namespace DonkeycarManager
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
 
             trbFrame.Scroll += trbFrame_Scroll;
+
+            // image adjustment events
+            btnSaveProcessed.Click += btnSaveProcessed_Click;
+            chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
+            chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
         }
 
         private void trbBrightness_Scroll(object? sender, EventArgs e)
@@ -1729,7 +1734,33 @@ namespace DonkeycarManager
                     using Bitmap temp = new Bitmap(ms);
 
                     if (pictureBox == picFrame || pictureBox == picCleanerPreview)
-                        pictureBox.Image = ApplyBrightnessContrast(temp);
+                    {
+                        Bitmap adjusted = ApplyBrightnessContrast(temp, trbBrightness.Value, trbContrast.Value);
+
+                        if (chkFlipHorizontal != null && chkFlipHorizontal.Checked)
+                            adjusted.RotateFlip(RotateFlipType.RotateNoneFlipX);
+
+                        if (chkGrayscale != null && chkGrayscale.Checked)
+                        {
+                            Bitmap gray = new Bitmap(adjusted.Width, adjusted.Height);
+                            using Graphics g = Graphics.FromImage(gray);
+                            System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][]
+                            {
+                                new float[] { 0.299f, 0.299f, 0.299f, 0, 0 },
+                                new float[] { 0.587f, 0.587f, 0.587f, 0, 0 },
+                                new float[] { 0.114f, 0.114f, 0.114f, 0, 0 },
+                                new float[] { 0, 0, 0, 1, 0 },
+                                new float[] { 0, 0, 0, 0, 1 }
+                            });
+                            using System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
+                            ia.SetColorMatrix(cm);
+                            g.DrawImage(adjusted, new Rectangle(0, 0, adjusted.Width, adjusted.Height),
+                                0, 0, adjusted.Width, adjusted.Height, GraphicsUnit.Pixel, ia);
+                            adjusted = gray;
+                        }
+
+                        pictureBox.Image = adjusted;
+                    }
                     else
                         pictureBox.Image = new Bitmap(temp);
                 }
@@ -2404,10 +2435,10 @@ namespace DonkeycarManager
             return "High Error";
         }
 
-        private Bitmap ApplyBrightnessContrast(Bitmap source)
+        private Bitmap ApplyBrightnessContrast(Bitmap source, int brightnessVal = 0, int contrastVal = 0)
         {
-            float brightness = trbBrightness.Value / 100f;
-            float contrast = (trbContrast.Value + 100f) / 100f;
+            float brightness = brightnessVal / 100f;
+            float contrast = (contrastVal + 100f) / 100f;
 
             Bitmap result = new Bitmap(source.Width, source.Height);
 
@@ -2433,6 +2464,147 @@ namespace DonkeycarManager
                 GraphicsUnit.Pixel, ia);
 
             return result;
+        }
+
+        private void chkFlipHorizontal_CheckedChanged(object? sender, EventArgs e)
+        {
+            if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+                ShowFrame(currentIndex);
+        }
+
+        private void chkGrayscale_CheckedChanged(object? sender, EventArgs e)
+        {
+            if (currentIndex >= 0 && currentIndex < visibleFrames.Count)
+                ShowFrame(currentIndex);
+        }
+
+        private async void btnSaveProcessed_Click(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(dataFolderPath))
+            {
+                MessageBox.Show("먼저 Viewer 탭에서 data 폴더를 열어주세요.");
+                return;
+            }
+
+            string processedFolder = Path.Combine(dataFolderPath, "processed");
+            string processedImagesFolder = Path.Combine(processedFolder, "images");
+
+            btnSaveProcessed.Enabled = false;
+            btnSaveProcessed.Text = "저장 중...";
+
+            bool flipHorizontal = chkFlipHorizontal.Checked;
+            bool grayscale = chkGrayscale.Checked;
+            int brightnessVal = trbBrightness.Value;
+            int contrastVal = trbContrast.Value;
+
+            try
+            {
+                int savedCount = await Task.Run(() =>
+                {
+                    Directory.CreateDirectory(processedImagesFolder);
+
+                    int count = 0;
+
+                    foreach (DonkeyFrame frame in allFrames)
+                    {
+                        string srcPath = Path.Combine(imagesFolderPath, frame.ImageFileName);
+
+                        if (!File.Exists(srcPath))
+                            continue;
+
+                        byte[] bytes = File.ReadAllBytes(srcPath);
+
+                        using MemoryStream ms = new MemoryStream(bytes);
+                        using Bitmap src = new Bitmap(ms);
+                        using Bitmap processed = ApplyBrightnessContrast(src, brightnessVal, contrastVal);
+
+                        Bitmap final = processed;
+
+                        if (flipHorizontal)
+                        {
+                            Bitmap flipped = new Bitmap(processed);
+                            flipped.RotateFlip(RotateFlipType.RotateNoneFlipX);
+                            final = flipped;
+                        }
+
+                        if (grayscale)
+                        {
+                            Bitmap gray = new Bitmap(final.Width, final.Height);
+                            using Graphics g = Graphics.FromImage(gray);
+                            System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][]
+                            {
+                        new float[] { 0.299f, 0.299f, 0.299f, 0, 0 },
+                        new float[] { 0.587f, 0.587f, 0.587f, 0, 0 },
+                        new float[] { 0.114f, 0.114f, 0.114f, 0, 0 },
+                        new float[] { 0, 0, 0, 1, 0 },
+                        new float[] { 0, 0, 0, 0, 1 }
+                            });
+                            using System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
+                            ia.SetColorMatrix(cm);
+                            g.DrawImage(final, new Rectangle(0, 0, final.Width, final.Height),
+                                0, 0, final.Width, final.Height, GraphicsUnit.Pixel, ia);
+                            final = gray;
+                        }
+
+                        string dstPath = Path.Combine(processedImagesFolder, frame.ImageFileName);
+                        final.Save(dstPath, System.Drawing.Imaging.ImageFormat.Jpeg);
+                        count++;
+                    }
+
+                    string[] catalogFiles = Directory.GetFiles(dataFolderPath, "catalog_*.catalog");
+
+                    foreach (string catalogFile in catalogFiles)
+                    {
+                        string dest = Path.Combine(processedFolder, Path.GetFileName(catalogFile));
+
+                        if (flipHorizontal)
+                        {
+                            var lines = File.ReadAllLines(catalogFile);
+                            var flippedLines = new List<string>();
+
+                            foreach (string line in lines)
+                            {
+                                if (string.IsNullOrWhiteSpace(line)) continue;
+                                try
+                                {
+                                    using JsonDocument doc = JsonDocument.Parse(line);
+                                    var root = doc.RootElement;
+                                    var obj = new Dictionary<string, object?>();
+                                    foreach (var prop in root.EnumerateObject())
+                                        obj[prop.Name] = prop.Value.ValueKind == JsonValueKind.Number
+                                            ? (object?)prop.Value.GetDouble()
+                                            : prop.Value.GetString();
+
+                                    if (obj.ContainsKey("user/angle") && obj["user/angle"] is double angle)
+                                        obj["user/angle"] = -angle;
+
+                                    flippedLines.Add(JsonSerializer.Serialize(obj));
+                                }
+                                catch { flippedLines.Add(line); }
+                            }
+                            File.WriteAllLines(dest, flippedLines);
+                        }
+                        else
+                        {
+                            File.Copy(catalogFile, dest, true);
+                        }
+                    }
+
+                    return count;
+                });
+
+                AppendLog($"조작 데이터 저장 완료: {savedCount}개 이미지 → {processedFolder}");
+                MessageBox.Show($"{savedCount}개 이미지가 저장되었습니다.\n\n{processedFolder}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("저장 중 오류가 발생했습니다.\n\n" + ex.Message);
+            }
+            finally
+            {
+                btnSaveProcessed.Enabled = true;
+                btnSaveProcessed.Text = "조작 데이터 저장";
+            }
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
