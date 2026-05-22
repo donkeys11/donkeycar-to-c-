@@ -306,6 +306,8 @@ namespace DonkeycarManager
                     ShowFrame(next);
                     return;
                 }
+            }
+        }
 
         private void btnCleanerAutoPlay_Click(object? sender, EventArgs e)
         {
