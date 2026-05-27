@@ -1626,6 +1626,23 @@ namespace DonkeycarManager
                     string dest = Path.Combine(backupFolder, Path.GetFileName(catalogFile));
                     File.Copy(catalogFile, dest, true);
                 }
+                string imageSourceFolder = Path.Combine(dataFolderPath, "images");
+                string imageBackupFolder = Path.Combine(backupFolder, "images");
+
+                if (Directory.Exists(imageSourceFolder))
+                {
+                    Directory.CreateDirectory(imageBackupFolder);
+
+                    foreach (string imageFile in Directory.GetFiles(imageSourceFolder))
+                    {
+                        string dest = Path.Combine(
+                            imageBackupFolder,
+                            Path.GetFileName(imageFile)
+                        );
+
+                        File.Copy(imageFile, dest, true);
+                    }
+                }
 
                 AppendLog($"catalog 백업 완료: {backupFolder}");
             }
