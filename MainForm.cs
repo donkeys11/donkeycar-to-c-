@@ -470,7 +470,7 @@ namespace DonkeycarManager
             DialogResult result = MessageBox.Show(
                 $"선택한 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
                 "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 data 폴더 백업을 권장합니다.",
+                "삭제 전 data 폴더 백업을 생성합니다.",
                 "다중 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
@@ -521,6 +521,9 @@ namespace DonkeycarManager
 
                 HashSet<string> deleteKeys = new HashSet<string>();
 
+                string imgBackupRoot = Path.Combine(dataFolderPath, "images_backup");
+                string imgBackupDir = Path.Combine(imgBackupRoot, DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+
                 foreach (DonkeyFrame frame in framesToDelete)
                 {
                     string key = MakeFrameKey(frame);
@@ -530,9 +533,19 @@ namespace DonkeycarManager
 
                     if (File.Exists(imagePath))
                     {
+                        if (!Directory.Exists(imgBackupDir))
+                        {
+                            Directory.CreateDirectory(imgBackupDir);
+                            AppendLog($"삭제 이미지 백업 폴더 생성: {imgBackupDir}");
+                        }
+
+                        string backupPath = Path.Combine(imgBackupDir, frame.ImageFileName);
+                        File.Copy(imagePath, backupPath, true);
                         File.Delete(imagePath);
                         AppendLog($"{logTitle} 이미지 삭제: {frame.ImageFileName}");
+                        AppendLog($"{logTitle} 이미지 백업 및 삭제: {frame.ImageFileName}");
                     }
+
                     else
                     {
                         AppendLog($"{logTitle} 이미지 없음: {frame.ImageFileName}");
@@ -1629,20 +1642,6 @@ namespace DonkeycarManager
                 string imageSourceFolder = Path.Combine(dataFolderPath, "images");
                 string imageBackupFolder = Path.Combine(backupFolder, "images");
 
-                if (Directory.Exists(imageSourceFolder))
-                {
-                    Directory.CreateDirectory(imageBackupFolder);
-
-                    foreach (string imageFile in Directory.GetFiles(imageSourceFolder))
-                    {
-                        string dest = Path.Combine(
-                            imageBackupFolder,
-                            Path.GetFileName(imageFile)
-                        );
-
-                        File.Copy(imageFile, dest, true);
-                    }
-                }
 
                 AppendLog($"catalog 백업 완료: {backupFolder}");
             }
