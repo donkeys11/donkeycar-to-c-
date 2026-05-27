@@ -128,7 +128,7 @@ namespace DonkeycarManager
 
             trbFrame.Scroll += trbFrame_Scroll;
 
-            // image adjustment events
+           // image adjustment events
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
@@ -1115,6 +1115,11 @@ namespace DonkeycarManager
 
         private async void btnTrain_Click(object? sender, EventArgs e)
         {
+            // 프로그램 켤 때만 타임스탬프가 적용되지 않도록, 학습 시작할 때마다 타임스탬프를 갱신
+            string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            txtTrainArgs.Text = $"train.py --tub ./data --model ./models/mypilot_{timeStamp}.h5";
+            txtModelPath.Text = $"~/mycar/models/mypilot_{timeStamp}.h5";
+
             string mycarPath = txtMycarPath.Text.Trim();
             string pythonExe = txtPythonExe.Text.Trim();
             string trainArgs = txtTrainArgs.Text.Trim();
@@ -2164,6 +2169,7 @@ namespace DonkeycarManager
         private void UpdateModelStatus()
         {
             string mycarPath = txtMycarPath.Text.Trim();
+            string trainArgsText = txtTrainArgs.Text;
 
             if (string.IsNullOrWhiteSpace(mycarPath))
             {
@@ -2177,12 +2183,24 @@ namespace DonkeycarManager
                 return;
             }
 
-            string modelPath = Path.Combine(mycarPath, "models", "mypilot.h5");
+            // Extract the model filename from txtTrainArgs to correctly check its existence
+            string modelFileName = "mypilot.h5";
+            int modelIdx = trainArgsText.IndexOf("--model ");
+            if (modelIdx >= 0)
+            {
+                string remainder = trainArgsText.Substring(modelIdx + "--model ".Length).Trim();
+                int spaceIdx = remainder.IndexOf(' ');
+                string modelArgPath = spaceIdx >= 0 ? remainder.Substring(0, spaceIdx) : remainder;
+
+                modelFileName = Path.GetFileName(modelArgPath);
+            }
+
+            string modelPath = Path.Combine(mycarPath, "models", modelFileName);
 
             if (File.Exists(modelPath))
-                lblModelStatus.Text = "모델 상태: mypilot.h5 존재";
+                lblModelStatus.Text = $"모델 상태: {modelFileName} 존재";
             else
-                lblModelStatus.Text = "모델 상태: mypilot.h5 없음";
+                lblModelStatus.Text = $"모델 상태: {modelFileName} 없음";
         }
 
         private void DisposeCurrentImages()
@@ -2692,6 +2710,26 @@ namespace DonkeycarManager
             }
 
             base.OnFormClosed(e);
+        }
+
+        private void TbtnView_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 0;
+        }
+
+        private void TbtnClean_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 1;
+        }
+
+        private void TbtnTrain_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 2;
+        }
+
+        private void TbtnPilot_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 3;
         }
     }
 }
