@@ -128,7 +128,7 @@ namespace DonkeycarManager
 
             trbFrame.Scroll += trbFrame_Scroll;
 
-            // image adjustment events
+           // image adjustment events
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
