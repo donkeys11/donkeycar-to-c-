@@ -128,7 +128,7 @@ namespace DonkeycarManager
 
             trbFrame.Scroll += trbFrame_Scroll;
 
-            // image adjustment events
+           // image adjustment events
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
@@ -470,7 +470,7 @@ namespace DonkeycarManager
             DialogResult result = MessageBox.Show(
                 $"선택한 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
                 "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 data 폴더 백업을 권장합니다.",
+                "삭제 전 data 폴더 백업을 생성합니다.",
                 "다중 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
@@ -521,6 +521,9 @@ namespace DonkeycarManager
 
                 HashSet<string> deleteKeys = new HashSet<string>();
 
+                string imgBackupRoot = Path.Combine(dataFolderPath, "images_backup");
+                string imgBackupDir = Path.Combine(imgBackupRoot, DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+
                 foreach (DonkeyFrame frame in framesToDelete)
                 {
                     string key = MakeFrameKey(frame);
@@ -530,9 +533,19 @@ namespace DonkeycarManager
 
                     if (File.Exists(imagePath))
                     {
+                        if (!Directory.Exists(imgBackupDir))
+                        {
+                            Directory.CreateDirectory(imgBackupDir);
+                            AppendLog($"삭제 이미지 백업 폴더 생성: {imgBackupDir}");
+                        }
+
+                        string backupPath = Path.Combine(imgBackupDir, frame.ImageFileName);
+                        File.Copy(imagePath, backupPath, true);
                         File.Delete(imagePath);
                         AppendLog($"{logTitle} 이미지 삭제: {frame.ImageFileName}");
+                        AppendLog($"{logTitle} 이미지 백업 및 삭제: {frame.ImageFileName}");
                     }
+
                     else
                     {
                         AppendLog($"{logTitle} 이미지 없음: {frame.ImageFileName}");
@@ -1115,6 +1128,11 @@ namespace DonkeycarManager
 
         private async void btnTrain_Click(object? sender, EventArgs e)
         {
+            // 프로그램 켤 때만 타임스탬프가 적용되지 않도록, 학습 시작할 때마다 타임스탬프를 갱신
+            string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            txtTrainArgs.Text = $"train.py --tub ./data --model ./models/mypilot_{timeStamp}.h5";
+            txtModelPath.Text = $"~/mycar/models/mypilot_{timeStamp}.h5";
+
             string mycarPath = txtMycarPath.Text.Trim();
             string pythonExe = txtPythonExe.Text.Trim();
             string trainArgs = txtTrainArgs.Text.Trim();
@@ -1621,6 +1639,9 @@ namespace DonkeycarManager
                     string dest = Path.Combine(backupFolder, Path.GetFileName(catalogFile));
                     File.Copy(catalogFile, dest, true);
                 }
+                string imageSourceFolder = Path.Combine(dataFolderPath, "images");
+                string imageBackupFolder = Path.Combine(backupFolder, "images");
+
 
                 AppendLog($"catalog 백업 완료: {backupFolder}");
             }
@@ -2164,6 +2185,7 @@ namespace DonkeycarManager
         private void UpdateModelStatus()
         {
             string mycarPath = txtMycarPath.Text.Trim();
+            string trainArgsText = txtTrainArgs.Text;
 
             if (string.IsNullOrWhiteSpace(mycarPath))
             {
@@ -2177,12 +2199,24 @@ namespace DonkeycarManager
                 return;
             }
 
-            string modelPath = Path.Combine(mycarPath, "models", "mypilot.h5");
+            // Extract the model filename from txtTrainArgs to correctly check its existence
+            string modelFileName = "mypilot.h5";
+            int modelIdx = trainArgsText.IndexOf("--model ");
+            if (modelIdx >= 0)
+            {
+                string remainder = trainArgsText.Substring(modelIdx + "--model ".Length).Trim();
+                int spaceIdx = remainder.IndexOf(' ');
+                string modelArgPath = spaceIdx >= 0 ? remainder.Substring(0, spaceIdx) : remainder;
+
+                modelFileName = Path.GetFileName(modelArgPath);
+            }
+
+            string modelPath = Path.Combine(mycarPath, "models", modelFileName);
 
             if (File.Exists(modelPath))
-                lblModelStatus.Text = "모델 상태: mypilot.h5 존재";
+                lblModelStatus.Text = $"모델 상태: {modelFileName} 존재";
             else
-                lblModelStatus.Text = "모델 상태: mypilot.h5 없음";
+                lblModelStatus.Text = $"모델 상태: {modelFileName} 없음";
         }
 
         private void DisposeCurrentImages()
@@ -2692,6 +2726,26 @@ namespace DonkeycarManager
             }
 
             base.OnFormClosed(e);
+        }
+
+        private void TbtnView_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 0;
+        }
+
+        private void TbtnClean_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 1;
+        }
+
+        private void TbtnTrain_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 2;
+        }
+
+        private void TbtnPilot_Click(object sender, EventArgs e)
+        {
+            tabMain.SelectedIndex = 3;
         }
     }
 }
