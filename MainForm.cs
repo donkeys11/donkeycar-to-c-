@@ -551,6 +551,7 @@ namespace DonkeycarManager
             DeleteFrames(framesToDelete, "구간 삭제");
         }
 
+
         private void DeleteFrames(List<DonkeyFrame> framesToDelete, string logTitle)
         {
             try
