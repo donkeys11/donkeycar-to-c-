@@ -2747,5 +2747,11 @@ namespace DonkeycarManager
         {
             tabMain.SelectedIndex = 3;
         }
+
+        public void SelectTab(int index)
+        {
+            if (tabMain.TabCount > index)
+                tabMain.SelectedIndex = index;
+        }
     }
 }

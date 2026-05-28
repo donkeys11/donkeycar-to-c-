@@ -8,20 +8,9 @@ namespace DonkeycarManager
         [STAThread]
         static void Main()
         {
-            try
-            {
-                ApplicationConfiguration.Initialize();
-                Application.Run(new MainForm());
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    ex.ToString(),
-                    "프로그램 시작 오류",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-            }
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+            ApplicationConfiguration.Initialize();
+            Application.Run(new SplashForm());
         }
     }
 }

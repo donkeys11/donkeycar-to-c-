@@ -12,4 +12,10 @@
     <Folder Include="img\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ReaLTaiizor" Version="3.8.1.8" />
+  </ItemGroup>
+
+
+
 </Project>
