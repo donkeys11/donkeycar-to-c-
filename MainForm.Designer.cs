@@ -526,19 +526,19 @@ namespace DonkeycarManager
             tabCleaner.Padding = new Padding(2);
             tabCleaner.Size = new Size(1081, 510);
             tabCleaner.TabIndex = 1;
-            tabCleaner.Text = "Cleaner - 데이터 정리";
+            tabCleaner.Text = "Cleaner - 데이터 편집";
             // 
             // lblTitleCleaner
             // 
             lblTitleCleaner.AutoSize = true;
             lblTitleCleaner.Font = new Font("Segoe UI", 22F, FontStyle.Bold);
             lblTitleCleaner.ForeColor = Color.FromArgb(185, 28, 28);
-            lblTitleCleaner.Location = new Point(16, 11);
+            lblTitleCleaner.Location = new Point(7, 2);
             lblTitleCleaner.Margin = new Padding(2, 0, 2, 0);
             lblTitleCleaner.Name = "lblTitleCleaner";
-            lblTitleCleaner.Size = new Size(185, 41);
+            lblTitleCleaner.Size = new Size(176, 41);
             lblTitleCleaner.TabIndex = 0;
-            lblTitleCleaner.Text = "Tub Cleaner";
+            lblTitleCleaner.Text = "데이터 편집";
             // 
             // picCleanerPreview
             // 
@@ -930,7 +930,7 @@ namespace DonkeycarManager
             tabTrainer.Padding = new Padding(2);
             tabTrainer.Size = new Size(1081, 510);
             tabTrainer.TabIndex = 2;
-            tabTrainer.Text = "Trainer - 학습 실행";
+            tabTrainer.Text = "Trainer - 데이터 학습";
             // 
             // lblTitleTrainer
             // 
@@ -940,9 +940,9 @@ namespace DonkeycarManager
             lblTitleTrainer.Location = new Point(16, 14);
             lblTitleTrainer.Margin = new Padding(2, 0, 2, 0);
             lblTitleTrainer.Name = "lblTitleTrainer";
-            lblTitleTrainer.Size = new Size(274, 41);
+            lblTitleTrainer.Size = new Size(176, 41);
             lblTitleTrainer.TabIndex = 0;
-            lblTitleTrainer.Text = "Donkeycar Trainer";
+            lblTitleTrainer.Text = "데이터 학습";
             // 
             // lblMycarPath
             // 
@@ -1125,9 +1125,9 @@ namespace DonkeycarManager
             lblTitlePilot.Location = new Point(16, 14);
             lblTitlePilot.Margin = new Padding(2, 0, 2, 0);
             lblTitlePilot.Name = "lblTitlePilot";
-            lblTitlePilot.Size = new Size(359, 41);
+            lblTitlePilot.Size = new Size(249, 41);
             lblTitlePilot.TabIndex = 0;
-            lblTitlePilot.Text = "Pilot Arena / Model Test";
+            lblTitlePilot.Text = "주행/모델 테스트";
             // 
             // lblModelPath
             // 
