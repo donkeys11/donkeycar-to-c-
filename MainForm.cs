@@ -191,6 +191,9 @@ namespace DonkeycarManager
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
 
+            trbFrame.Scroll += trbFrame_Scroll;
+
+            // image adjustment events
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
@@ -458,6 +461,46 @@ namespace DonkeycarManager
 
         private void btnDeleteFrame_Click(object? sender, EventArgs e)
         {
+            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
+
+            // 1. 필터가 켜져 있어서, 화면에 안 보이고 '걸러진 쓰레기 데이터'가 존재하는 경우의 자동 삭제
+            if (hasFilter && visibleFrames.Count < allFrames.Count)
+            {
+                int trashCount = allFrames.Count - visibleFrames.Count;
+                DialogResult filterResult = MessageBox.Show(
+                    $"현재 필터링되어 화면에 안 보이는 데이터가 {trashCount}개 있습니다.\n\n" +
+                    "이 데이터들을 삭제하시겠습니까?",
+                    "데이터 삭제",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question
+                );
+
+                if (filterResult == DialogResult.Yes)
+                {
+                    List<DonkeyFrame> hiddenTrashFrames = new List<DonkeyFrame>();
+                    HashSet<string> visibleKeys = new HashSet<string>();
+
+                    foreach (var f in visibleFrames)
+                        visibleKeys.Add(MakeFrameKey(f));
+
+                    // 전체 데이터 중에서 화면에 없는(걸러진) 데이터들만 색출
+                    foreach (var f in allFrames)
+                    {
+                        if (!visibleKeys.Contains(MakeFrameKey(f)))
+                            hiddenTrashFrames.Add(f);
+                    }
+
+                    DeleteFrames(hiddenTrashFrames, "필터 걸러진 데이터 통째로 삭제");
+                    return; // 필터 잔연물 삭제 완료 후 종료
+                }
+                else if (filterResult == DialogResult.Cancel)
+                {
+                    return; // 취소
+                }
+                // No를 누를 시, 원래대로 리스트에서 파란색 표기된 개별 선택 삭제 로직으로 넘어감
+            }
+
+            // 2. 기본 동작: 필터와 무관하게 사용자가 리스트에서 파란색으로 선택한 항별 수동 삭제
             if (visibleFrames.Count == 0)
             {
                 MessageBox.Show("삭제할 데이터가 없습니다.");
@@ -466,6 +509,7 @@ namespace DonkeycarManager
 
             List<DonkeyFrame> framesToDelete = new List<DonkeyFrame>();
 
+            // lstCleanerFrames에서 파란색으로 선택된 항목들만 가져옴
             foreach (int selectedIndex in lstCleanerFrames.SelectedIndices)
             {
                 if (selectedIndex >= 0 && selectedIndex < visibleFrames.Count)
@@ -484,16 +528,16 @@ namespace DonkeycarManager
             DialogResult result = MessageBox.Show(
                 $"선택한 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
                 "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 data 폴더 백업을 생성합니다.",
-                "다중 삭제 확인",
+                "삭제 전 백업 폴더가 자동으로 생성됩니다.",
+                "선택 프레임 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
             );
 
-            if (result != DialogResult.Yes)
-                return;
-
-            DeleteFrames(framesToDelete, "다중 삭제");
+            if (result == DialogResult.Yes)
+            {
+                DeleteFrames(framesToDelete, "선택 수동 삭제");
+            }
         }
 
         private void btnDeleteRange_Click(object? sender, EventArgs e)
@@ -512,7 +556,7 @@ namespace DonkeycarManager
             DialogResult result = MessageBox.Show(
                 $"선택 구간 {start + 1} ~ {end + 1}의 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
                 "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 data 폴더 백업을 권장합니다.",
+                "삭제 전 백업 폴더가 자동으로 생성됩니다.",
                 "구간 삭제 확인",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning
@@ -523,6 +567,7 @@ namespace DonkeycarManager
 
             DeleteFrames(framesToDelete, "구간 삭제");
         }
+
 
         private void DeleteFrames(List<DonkeyFrame> framesToDelete, string logTitle)
         {
@@ -535,8 +580,23 @@ namespace DonkeycarManager
 
                 HashSet<string> deleteKeys = new HashSet<string>();
 
-                string imgBackupRoot = Path.Combine(dataFolderPath, "images_backup");
-                string imgBackupDir = Path.Combine(imgBackupRoot, DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+                // !!! 1. 먼저 카탈로그를 정리 및 백업 (합쳐진 백업 폴더 생성) !!!
+                // 백업 과정에서 삭제되지 않은 원본 카탈로그 파일들이 백업됩니다.
+                int removedCountForCatalog = allFrames.RemoveAll(f =>
+                    framesToDelete.Any(delF => MakeFrameKey(delF) == MakeFrameKey(f)));
+
+                // SaveCatalog() 함수가 내부적으로 BackupCatalogFiles()를 호출하여 백업 폴더를 만듭니다.
+                // 여기선 그 백업 폴더 경로를 받아와서 쓸 수 있도록 SaveCatalog()의 반환값을 바꾸면 좀 복잡해지므로, 
+                // 수동으로 한 번 BackupCatalogFiles()를 호출해서 통합 백업 폴더 경로를 얻겠습니다.
+                string backupFolderPath = BackupCatalogFiles();
+
+                // !!! 2. 삭제할 이미지 백업 및 삭제 !!!
+                string imgBackupDir = string.Empty;
+                if (!string.IsNullOrWhiteSpace(backupFolderPath))
+                {
+                    imgBackupDir = Path.Combine(backupFolderPath, "images");
+                    Directory.CreateDirectory(imgBackupDir);
+                }
 
                 foreach (DonkeyFrame frame in framesToDelete)
                 {
@@ -547,14 +607,13 @@ namespace DonkeycarManager
 
                     if (File.Exists(imagePath))
                     {
-                        if (!Directory.Exists(imgBackupDir))
+                        // 이미지 백업 폴더가 정상적으로 있을 경우 복사
+                        if (!string.IsNullOrWhiteSpace(imgBackupDir))
                         {
-                            Directory.CreateDirectory(imgBackupDir);
-                            AppendLog($"삭제 이미지 백업 폴더 생성: {imgBackupDir}");
+                            string backupPath = Path.Combine(imgBackupDir, frame.ImageFileName);
+                            File.Copy(imagePath, backupPath, true);
                         }
 
-                        string backupPath = Path.Combine(imgBackupDir, frame.ImageFileName);
-                        File.Copy(imagePath, backupPath, true);
                         File.Delete(imagePath);
                         AppendLog($"{logTitle} 이미지 백업 및 삭제: {frame.ImageFileName}");
                     }
@@ -564,17 +623,18 @@ namespace DonkeycarManager
                     }
                 }
 
-                int removedCount = allFrames.RemoveAll(f => deleteKeys.Contains(MakeFrameKey(f)));
-
                 ClearCleanerTimelineThumbnailCache();
 
-                SaveCatalog();
+                // !!! 3. 삭제 완료된 새 리스트로 카탈로그 파일을 다시 생성 !!!
+                // 단, BackupCatalogFiles()는 위에서 호출했으므로 SaveCatalog 내부의 중복 백업 호출은 막아줘야 합니다.
+                // 편의상 이대로 SaveCatalog()를 호출해도 무관합니다. (어차피 1초 안이라 같은 폴더에 덮어씌워짐)
+                SaveCatalogWithoutBackup();
 
                 ResetCleanerRange();
                 ApplyFilter();
 
-                AppendLog($"{logTitle} 완료: {removedCount}개 프레임 삭제");
-                MessageBox.Show($"{removedCount}개 프레임 삭제가 완료되었습니다.");
+                AppendLog($"{logTitle} 완료: {removedCountForCatalog}개 프레임 삭제");
+                MessageBox.Show($"{removedCountForCatalog}개 프레임 삭제 및 백업이 완료되었습니다.\n[백업 폴더: data/backup]");
             }
             catch (Exception ex)
             {
@@ -1592,33 +1652,41 @@ namespace DonkeycarManager
             return int.MaxValue;
         }
 
-        private void BackupCatalogFiles()
+        private string BackupCatalogFiles()
         {
             try
             {
                 string[] catalogFiles = GetCatalogFiles();
 
                 if (catalogFiles.Length == 0)
-                    return;
+                    return string.Empty;
 
-                string backupRoot = Path.Combine(dataFolderPath, "catalog_backup");
+                // 통합 백업 폴더 생성
+                string backupRoot = Path.Combine(dataFolderPath, "backup");
                 Directory.CreateDirectory(backupRoot);
 
                 string backupFolderName = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 string backupFolder = Path.Combine(backupRoot, backupFolderName);
                 Directory.CreateDirectory(backupFolder);
 
+                // 카탈로그 전용 폴더 생성
+                string catalogBackupDir = Path.Combine(backupFolder, "catalog");
+                Directory.CreateDirectory(catalogBackupDir);
+
+                // 카탈로그 복사
                 foreach (string catalogFile in catalogFiles)
                 {
-                    string dest = Path.Combine(backupFolder, Path.GetFileName(catalogFile));
+                    string dest = Path.Combine(catalogBackupDir, Path.GetFileName(catalogFile));
                     File.Copy(catalogFile, dest, true);
                 }
 
-                AppendLog($"catalog 백업 완료: {backupFolder}");
+                AppendLog($"통합 백업 폴더 생성 완료: {backupFolder}");
+                return backupFolder; // 백업된 통합 폴더 경로를 반환!
             }
             catch (Exception ex)
             {
-                AppendLog("catalog 백업 실패: " + ex.Message);
+                AppendLog("통합 백업 실패: " + ex.Message);
+                return string.Empty;
             }
         }
 
@@ -1769,55 +1837,57 @@ namespace DonkeycarManager
             lstCleanerFrames.BeginUpdate();
 
             lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
-            lstCleanerFrames.ClearSelected();
-
-            int count = 0;
+            lstCleanerFrames.ClearSelected(); int count = 0;
             bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
 
             if (hasFilter)
             {
-                for (int i = 0; i < visibleFrames.Count; i++)
-                {
-                    DonkeyFrame f = visibleFrames[i];
-                    bool satisfy = true;
+                List<DonkeyFrame> cleanFrames = new List<DonkeyFrame>();
 
+                foreach (DonkeyFrame f in allFrames)
+                {
+                    bool isGood = true;
+
+                    // 살릴 데이터의 조건 (조건 불만족시 걸러냄)
                     if (chkThrottlePositive.Checked && f.Throttle <= 0)
-                        satisfy = false;
+                        isGood = false;
 
                     if (chkExcludeZeroAngle.Checked && Math.Abs(f.Angle) <= 0.000001)
-                        satisfy = false;
+                        isGood = false;
 
                     if (chkStopDataOnly.Checked && Math.Abs(f.Throttle) > 0.000001)
-                        satisfy = false;
+                        isGood = false;
 
-                    if (!satisfy)
-                    {
-                        lstCleanerFrames.SetSelected(i, true);
-                        count++;
-                    }
+                    if (isGood)
+                        cleanFrames.Add(f);  // 보여줄 정상 데이터만 추가
+                    else
+                        count++;             // 숨겨질 쓰레기 데이터 카운트
                 }
+
+                // 화면엔 깨끗한 정상 데이터만 보임!
+                visibleFrames = cleanFrames;
+            }
+            else
+            {
+                visibleFrames = allFrames.ToList();
             }
 
             BindFrameLists();
             ResetCleanerRange();
 
             if (visibleFrames.Count > 0)
-            {
-                if (lstCleanerFrames.SelectedIndex >= 0)
-                    ShowFrame(lstCleanerFrames.SelectedIndex);
-                else
-                    ShowFrame(0);
-            }
+                ShowFrame(0);
             else
-            {
                 ClearViewer();
-            }
 
             if (hasFilter)
-                AppendLog($"필터 적용: 조건 불만족 {count}개 프레임 선택됨");
+                AppendLog($"필터 적용:필터링된 데이터 {count}개가 화면에서 숨겨졌습니다.");
             else
-                AppendLog("필터 적용: 선택된 조건 없음");
+                AppendLog("필터 해제: 전체 데이터 표시");
         }
+
+    
+
 
         private void ClearViewer()
         {
@@ -1850,12 +1920,10 @@ namespace DonkeycarManager
             ResetCleanerRange();
         }
 
-        private void SaveCatalog()
+        private void SaveCatalogWithoutBackup()
         {
             try
             {
-                BackupCatalogFiles();
-
                 string[] oldCatalogFiles = GetCatalogFiles();
 
                 foreach (string oldCatalog in oldCatalogFiles)
@@ -1907,12 +1975,12 @@ namespace DonkeycarManager
                 catalogFilePath = Path.Combine(dataFolderPath, "catalog_0.catalog");
 
                 AppendLog(
-                    $"catalog 저장 완료: {writtenCount}개 프레임 / catalog 파일 {catalogIndex}개로 분할 저장"
+                    $"catalog 재작성 완료: {writtenCount}개 프레임 / catalog 파일 {catalogIndex}개로 분할 저장"
                 );
             }
             catch (Exception ex)
             {
-                MessageBox.Show("catalog 저장 중 오류가 발생했습니다.\n\n" + ex.Message);
+                MessageBox.Show("catalog 재작성 중 오류가 발생했습니다.\n\n" + ex.Message);
             }
         }
 
