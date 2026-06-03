@@ -27,7 +27,6 @@ namespace DonkeycarManager
 
         private Process? trainProcess;
 
-        private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerAutoPlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer pilotAutoPlayTimer = new System.Windows.Forms.Timer();
@@ -59,13 +58,14 @@ namespace DonkeycarManager
             ConnectEvents();
 
 
+            tabMain.AllowDrop = true;
+            tabMain.DragEnter += MainForm_DragEnter;
+            tabMain.DragDrop += MainForm_DragDrop;
+
             txtMycarPath.Text = "~/mycar";
             txtPythonExe.Text = "wsl";
             txtTrainArgs.Text = "train.py --tub ./data --model ./models/mypilot.h5";
             txtModelPath.Text = "~/mycar/models/mypilot.h5";
-
-            autoPlayTimer.Interval = 150;
-            autoPlayTimer.Tick += AutoPlayTimer_Tick;
 
             cleanerRangePlayTimer.Interval = 120;
             cleanerRangePlayTimer.Tick += CleanerRangePlayTimer_Tick;
@@ -79,19 +79,85 @@ namespace DonkeycarManager
             picPilotTest.Paint += picPilotTest_Paint;
             picPilotTest.Resize += (s, e) => picPilotTest.Invalidate();
 
-            AppendLog("프로그램 실행 완료");
+            // 폴더 아이콘
+            btnOpenDataFolder.Text = "📁";
+            btnOpenDataFolder.Font = new Font("Segoe UI Emoji", btnOpenDataFolder.Height / 5f);
+            btnOpenDataFolder.TextAlign = ContentAlignment.MiddleCenter;
+
+            // 텍스트 없는 클리어 버튼
+            btnClearDataPath.Text = "";
+            btnClearDataPath.Paint += BtnClearDataPath_Paint;
+        }
+
+        private void BtnClearDataPath_Paint(object? sender, PaintEventArgs e)
+        {
+            Button btn = (Button)sender!;
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int size = Math.Min(btn.Width, btn.Height) - 16;
+
+            // 폴더 아이콘
+            using Font f = new Font("Segoe UI Emoji", size / 3.5f);
+            using SolidBrush brush = new SolidBrush(Color.FromArgb(100, 100, 100));
+            string folder = "📁";
+            SizeF fs = g.MeasureString(folder, f);
+            g.DrawString(folder, f, brush, (btn.Width - fs.Width) / 2, (btn.Height - fs.Height) / 2);
+
+            // X 표시
+            using Pen xPen = new Pen(Color.FromArgb(200, 60, 60), size / 8f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            int xSize = size / 4;
+            int cx = btn.Width / 2 + size / 6;
+            int cy = btn.Height / 2 + size / 6;
+            g.DrawLine(xPen, cx - xSize, cy - xSize, cx + xSize, cy + xSize);
+            g.DrawLine(xPen, cx + xSize, cy - xSize, cx - xSize, cy + xSize);
+        }
+
+        private void MainForm_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop))
+                e.Effect = DragDropEffects.Copy;
+            else
+                e.Effect = DragDropEffects.None;
+        }
+
+        private void MainForm_DragDrop(object sender, DragEventArgs e)
+        {
+            if (e.Data == null) return;
+            string[]? paths = (string[]?)e.Data.GetData(DataFormats.FileDrop);
+            if (paths == null || paths.Length == 0) return;
+
+            string path = paths[0];
+            if (Directory.Exists(path))
+            {
+                dataFolderPath = path;
+                imagesFolderPath = Path.Combine(dataFolderPath, "images");
+                txtDataPath.Text = path;
+                LoadCatalog();
+            }
         }
 
         private void ConnectEvents()
         {
+
+            // 폴더 선택 해제 버튼 이벤트 연결
+            btnClearDataPath.Click += btnClearDataPath_Click;
+
+            // 드래그 앤 드롭 이벤트 연결
+            txtDataPath.AllowDrop = true;
+            txtDataPath.DragEnter += MainForm_DragEnter;
+            txtDataPath.DragDrop += MainForm_DragDrop;
+
             btnScanModels.Click += btnScanModels_Click;
             trbBrightness.Scroll += trbBrightness_Scroll;
             trbContrast.Scroll += trbContrast_Scroll;
             cmbModelList.SelectedIndexChanged += cmbModelList_SelectedIndexChanged;
 
             btnOpenDataFolder.Click += btnOpenDataFolder_Click;
-            btnReload.Click += btnReload_Click;
-            btnAutoPlay.Click += btnAutoPlay_Click;
 
             btnApplyFilter.Click += btnApplyFilter_Click;
             btnClearFilter.Click += btnClearFilter_Click;
@@ -122,7 +188,6 @@ namespace DonkeycarManager
             btnPilotAutoPlay.Click += btnPilotAutoPlay_Click;
             btnPilotStop.Click += btnPilotStop_Click;
 
-            lstFrames.SelectedIndexChanged += lstFrames_SelectedIndexChanged;
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
 
@@ -132,6 +197,17 @@ namespace DonkeycarManager
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
+        }
+
+        private void btnClearDataPath_Click(object? sender, EventArgs e)
+        {
+            dataFolderPath = "";
+            imagesFolderPath = "";
+            catalogFilePath = "";
+            txtDataPath.Text = "폴더를 선택하거나 끌어오세요";
+            txtDataPath.ForeColor = Color.DimGray;
+            ClearViewer();
+            AppendLog("데이터 폴더 선택 해제");
         }
 
         private void trbBrightness_Scroll(object? sender, EventArgs e)
@@ -234,9 +310,8 @@ namespace DonkeycarManager
             }
 
             catalogFilePath = catalogFiles[0];
-
             txtMycarPath.Text = "~/mycar";
-            lblDataPath.Text = "Data Folder: " + dataFolderPath;
+            txtDataPath.Text = dataFolderPath;
 
             LoadCatalog();
         }
@@ -260,55 +335,6 @@ namespace DonkeycarManager
             LoadCatalog();
         }
 
-        private void btnAutoPlay_Click(object? sender, EventArgs e)
-        {
-            if (visibleFrames.Count == 0)
-                return;
-
-            cleanerAutoPlayTimer.Stop();
-            pilotAutoPlayTimer.Stop();
-
-            if (btnCleanerAutoPlay != null)
-                btnCleanerAutoPlay.Text = "자동 재생";
-
-            if (btnPilotAutoPlay != null)
-                btnPilotAutoPlay.Text = "자동 재생";
-
-            autoPlayTimer.Enabled = !autoPlayTimer.Enabled;
-            btnAutoPlay.Text = autoPlayTimer.Enabled ? "자동 재생 중지" : "자동 재생";
-        }
-
-        private void AutoPlayTimer_Tick(object? sender, EventArgs e)
-        {
-            if (visibleFrames.Count == 0)
-                return;
-
-            // 모든 프레임이 다 선택 상태라면 (필터링되어 볼 이미지가 없다면) 자동재생 중지
-            if (lstCleanerFrames.SelectedIndices.Count == visibleFrames.Count)
-            {
-                autoPlayTimer.Enabled = false;
-                btnAutoPlay.Text = "자동 재생";
-                AppendLog("모든 프레임이 필터링에 걸려 자동 재생을 중지합니다.");
-                return;
-            }
-
-            int next = currentIndex + 1;
-            int maxChecks = visibleFrames.Count; // 무한루프 방지
-
-            for (int i = 0; i < maxChecks; i++)
-            {
-                if (next >= visibleFrames.Count)
-                    next = 0;
-
-                // 백업/삭제 대상인 프레임(선택 목록에 포함된 프레임)이 아니면 해당 프레임 재생
-                if (!lstCleanerFrames.SelectedIndices.Contains(next))
-                {
-                    ShowFrame(next);
-                    return;
-                }
-            }
-        }
-
         private void btnCleanerAutoPlay_Click(object? sender, EventArgs e)
         {
             if (visibleFrames.Count == 0)
@@ -317,11 +343,7 @@ namespace DonkeycarManager
                 return;
             }
 
-            autoPlayTimer.Stop();
             pilotAutoPlayTimer.Stop();
-
-            if (btnAutoPlay != null)
-                btnAutoPlay.Text = "자동 재생";
 
             if (btnPilotAutoPlay != null)
                 btnPilotAutoPlay.Text = "자동 재생";
@@ -371,11 +393,7 @@ namespace DonkeycarManager
                 return;
             }
 
-            autoPlayTimer.Stop();
             cleanerAutoPlayTimer.Stop();
-
-            if (btnAutoPlay != null)
-                btnAutoPlay.Text = "자동 재생";
 
             if (btnCleanerAutoPlay != null)
                 btnCleanerAutoPlay.Text = "자동 재생";
@@ -431,7 +449,6 @@ namespace DonkeycarManager
             visibleFrames = allFrames.ToList();
 
             BindFrameLists();
-            SetupTrackBar();
             ResetCleanerRange();
 
             if (visibleFrames.Count > 0)
@@ -908,7 +925,6 @@ namespace DonkeycarManager
             cleanerTimelineStartIndex = Math.Max(0, Math.Min(cleanerTimelineStartIndex, maxStart));
 
             hsbCleanerTimeline.Enabled = visibleFrames.Count > visibleSlotCount;
-
             hsbCleanerTimeline.Minimum = 0;
             hsbCleanerTimeline.SmallChange = 1;
             hsbCleanerTimeline.LargeChange = Math.Max(1, visibleSlotCount);
@@ -929,7 +945,6 @@ namespace DonkeycarManager
                 {
                     int viewStart = cleanerTimelineStartIndex + 1;
                     int viewEnd = Math.Min(visibleFrames.Count, cleanerTimelineStartIndex + visibleSlotCount);
-
                     lblCleanerTimelineScrollInfo.Text =
                         $"표시 구간: {viewStart} ~ {viewEnd} / {visibleFrames.Count}";
                 }
@@ -944,13 +959,9 @@ namespace DonkeycarManager
             int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
 
             if (index < cleanerTimelineStartIndex)
-            {
                 cleanerTimelineStartIndex = index;
-            }
             else if (index >= cleanerTimelineStartIndex + visibleSlotCount)
-            {
                 cleanerTimelineStartIndex = index - visibleSlotCount + 1;
-            }
 
             cleanerTimelineStartIndex = Math.Max(0, Math.Min(cleanerTimelineStartIndex, GetCleanerTimelineMaxStartIndex()));
             UpdateCleanerTimelineScrollBar();
@@ -990,9 +1001,7 @@ namespace DonkeycarManager
                     Bitmap? thumb = GetCleanerTimelineThumbnail(frame, thumbRect.Size);
 
                     if (thumb != null)
-                    {
                         g.DrawImage(thumb, thumbRect);
-                    }
                     else
                     {
                         g.FillRectangle(missingBrush, thumbRect);
@@ -1183,7 +1192,6 @@ namespace DonkeycarManager
 
         private async void btnTrain_Click(object? sender, EventArgs e)
         {
-            // 프로그램 켤 때만 타임스탬프가 적용되지 않도록, 학습 시작할 때마다 타임스탬프를 갱신
             string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             txtTrainArgs.Text = $"train.py --tub ./data --model ./models/mypilot_{timeStamp}.h5";
             txtModelPath.Text = $"~/mycar/models/mypilot_{timeStamp}.h5";
@@ -1225,7 +1233,7 @@ namespace DonkeycarManager
             else if (string.IsNullOrWhiteSpace(dataFolderPath))
             {
                 AppendLog("[경고] 데이터 폴더가 선택되지 않았습니다.");
-                MessageBox.Show("Viewer 탭에서 Donkeycar data 폴더를 먼저 열어주세요.");
+                MessageBox.Show("Cleaner 탭에서 Donkeycar data 폴더를 먼저 열어주세요.");
                 return;
             }
 
@@ -1263,23 +1271,13 @@ namespace DonkeycarManager
                 trainProcess.OutputDataReceived += (s, ev) =>
                 {
                     if (!string.IsNullOrWhiteSpace(ev.Data))
-                    {
-                        BeginInvoke(new Action(() =>
-                        {
-                            AppendLog(ev.Data);
-                        }));
-                    }
+                        BeginInvoke(new Action(() => AppendLog(ev.Data)));
                 };
 
                 trainProcess.ErrorDataReceived += (s, ev) =>
                 {
                     if (!string.IsNullOrWhiteSpace(ev.Data))
-                    {
-                        BeginInvoke(new Action(() =>
-                        {
-                            AppendLog("[ERR] " + ev.Data);
-                        }));
-                    }
+                        BeginInvoke(new Action(() => AppendLog("[ERR] " + ev.Data)));
                 };
 
                 trainProcess.Start();
@@ -1298,7 +1296,6 @@ namespace DonkeycarManager
             catch (Exception ex)
             {
                 AppendLog("학습 실행 실패: " + ex.Message);
-
                 MessageBox.Show(
                     "학습 실행에 실패했습니다.\n\n" +
                     "확인할 것:\n" +
@@ -1311,7 +1308,6 @@ namespace DonkeycarManager
                 );
             }
         }
-
 
         private async Task EnsurePredictOneScriptAsync()
         {
@@ -1397,8 +1393,6 @@ namespace DonkeycarManager
                 AppendLog("[경고] predict_one.py 자동 생성 실패 - 수동으로 넣어주세요");
         }
 
-
-
         private void btnStopTrain_Click(object? sender, EventArgs e)
         {
             try
@@ -1433,7 +1427,7 @@ namespace DonkeycarManager
         {
             if (currentIndex < 0 || currentIndex >= visibleFrames.Count)
             {
-                MessageBox.Show("먼저 Viewer 탭에서 사용할 이미지를 선택하세요.");
+                MessageBox.Show("먼저 Cleaner 탭에서 사용할 이미지를 선택하세요.");
                 return;
             }
 
@@ -1540,15 +1534,6 @@ namespace DonkeycarManager
             }
         }
 
-        private void lstFrames_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (isUpdatingSelection)
-                return;
-
-            if (lstFrames.SelectedIndex >= 0 && lstFrames.SelectedIndex < visibleFrames.Count)
-                ShowFrame(lstFrames.SelectedIndex);
-        }
-
         private void lstCleanerFrames_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (isUpdatingSelection)
@@ -1570,11 +1555,6 @@ namespace DonkeycarManager
 
             if (lstPilotFrames.SelectedIndex >= 0 && lstPilotFrames.SelectedIndex < visibleFrames.Count)
                 ShowFrame(lstPilotFrames.SelectedIndex);
-        }
-
-        private void trbFrame_Scroll(object? sender, EventArgs e)
-        {
-            ShowFrame(trbFrame.Value);
         }
 
         private void LoadCatalog()
@@ -1627,7 +1607,6 @@ namespace DonkeycarManager
                 visibleFrames = allFrames.ToList();
 
                 BindFrameLists();
-                SetupTrackBar();
                 ResetCleanerRange();
 
                 if (visibleFrames.Count > 0)
@@ -1715,11 +1694,9 @@ namespace DonkeycarManager
         {
             isUpdatingSelection = true;
 
-            lstFrames.BeginUpdate();
             lstCleanerFrames.BeginUpdate();
             lstPilotFrames.BeginUpdate();
 
-            lstFrames.Items.Clear();
             lstCleanerFrames.Items.Clear();
             lstPilotFrames.Items.Clear();
 
@@ -1728,12 +1705,10 @@ namespace DonkeycarManager
                 string text =
                     $"{frame.Index:D5} | angle={frame.Angle:F3} | throttle={frame.Throttle:F3} | mode={frame.Mode}";
 
-                lstFrames.Items.Add(text);
                 lstCleanerFrames.Items.Add(text);
                 lstPilotFrames.Items.Add(text);
             }
 
-            lstFrames.EndUpdate();
             lstCleanerFrames.EndUpdate();
             lstPilotFrames.EndUpdate();
 
@@ -1746,13 +1721,6 @@ namespace DonkeycarManager
             UpdateCleanerRangeUi();
         }
 
-        private void SetupTrackBar()
-        {
-            trbFrame.Minimum = 0;
-            trbFrame.Maximum = Math.Max(0, visibleFrames.Count - 1);
-            trbFrame.Value = 0;
-        }
-
         private void ShowFrame(int index)
         {
             if (index < 0 || index >= visibleFrames.Count)
@@ -1763,7 +1731,6 @@ namespace DonkeycarManager
 
             string imagePath = Path.Combine(imagesFolderPath, frame.ImageFileName);
 
-            LoadImageToPictureBox(picFrame, imagePath);
             LoadImageToPictureBox(picCleanerPreview, imagePath);
             LoadImageToPictureBox(picPilotTest, imagePath);
 
@@ -1772,11 +1739,6 @@ namespace DonkeycarManager
             overlayActualThrottle = null;
             overlayPredictedThrottle = null;
             picPilotTest.Invalidate();
-
-            lblFrameInfo.Text = $"Frame: {index + 1} / {visibleFrames.Count}";
-            lblAngle.Text = $"핸들 각도: {frame.Angle:F4}";
-            lblThrottle.Text = $"속도: {frame.Throttle:F4}";
-            lblMode.Text = $"모드: {frame.Mode}";
 
             lblCleanerInfo.Text =
                 $"선택 프레임 정보: index={frame.Index}, angle={frame.Angle:F4}, throttle={frame.Throttle:F4}, mode={frame.Mode}";
@@ -1789,13 +1751,7 @@ namespace DonkeycarManager
             lblPilotWarning.Text = "판정: -";
             lblPilotWarning.ForeColor = Color.DimGray;
 
-            if (trbFrame.Value != index)
-                trbFrame.Value = index;
-
             isUpdatingSelection = true;
-
-            if (lstFrames.SelectedIndex != index)
-                lstFrames.SelectedIndex = index;
 
             if (!lstCleanerFrames.Focused)
             {
@@ -1832,7 +1788,7 @@ namespace DonkeycarManager
                     using MemoryStream ms = new MemoryStream(bytes);
                     using Bitmap temp = new Bitmap(ms);
 
-                    if (pictureBox == picFrame || pictureBox == picCleanerPreview)
+                    if (pictureBox == picCleanerPreview)
                     {
                         Bitmap adjusted = ApplyBrightnessContrast(temp, trbBrightness.Value, trbContrast.Value);
 
@@ -1876,12 +1832,10 @@ namespace DonkeycarManager
             visibleFrames = allFrames.ToList();
 
             BindFrameLists();
-            SetupTrackBar();
 
             isUpdatingSelection = true;
             lstCleanerFrames.BeginUpdate();
 
-            // 단순히 클릭만으로도 선택/해제를 토글할 수 있는 MultiSimple 모드 사용
             lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
             lstCleanerFrames.ClearSelected(); int count = 0;
             bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
@@ -1919,7 +1873,6 @@ namespace DonkeycarManager
             }
 
             BindFrameLists();
-            SetupTrackBar();
             ResetCleanerRange();
 
             if (visibleFrames.Count > 0)
@@ -1947,10 +1900,6 @@ namespace DonkeycarManager
             overlayActualThrottle = null;
             overlayPredictedThrottle = null;
 
-            lblFrameInfo.Text = "Frame: -";
-            lblAngle.Text = "Angle: -";
-            lblThrottle.Text = "Throttle: -";
-            lblMode.Text = "Mode: -";
             lblCleanerInfo.Text = "선택 프레임 정보: -";
 
             lblActualAngle.Text = "실제 Angle: -";
@@ -1962,14 +1911,9 @@ namespace DonkeycarManager
             lblPilotWarning.ForeColor = Color.DimGray;
 
             isUpdatingSelection = true;
-            lstFrames.Items.Clear();
             lstCleanerFrames.Items.Clear();
             lstPilotFrames.Items.Clear();
             isUpdatingSelection = false;
-
-            trbFrame.Minimum = 0;
-            trbFrame.Maximum = 0;
-            trbFrame.Value = 0;
 
             cleanerTimelineStartIndex = 0;
             UpdateCleanerTimelineScrollBar();
@@ -2117,11 +2061,7 @@ namespace DonkeycarManager
                 if (!string.IsNullOrWhiteSpace(ev.Data))
                 {
                     outputBuilder.AppendLine(ev.Data);
-
-                    BeginInvoke(new Action(() =>
-                    {
-                        AppendLog(ev.Data);
-                    }));
+                    BeginInvoke(new Action(() => AppendLog(ev.Data)));
                 }
             };
 
@@ -2130,11 +2070,7 @@ namespace DonkeycarManager
                 if (!string.IsNullOrWhiteSpace(ev.Data))
                 {
                     errorBuilder.AppendLine(ev.Data);
-
-                    BeginInvoke(new Action(() =>
-                    {
-                        AppendLog("[ERR] " + ev.Data);
-                    }));
+                    BeginInvoke(new Action(() => AppendLog("[ERR] " + ev.Data)));
                 }
             };
 
@@ -2150,8 +2086,7 @@ namespace DonkeycarManager
             if (process.ExitCode != 0)
             {
                 throw new Exception(
-                    "Python 예측 스크립트가 실패했습니다.\n\n" +
-                    stderr
+                    "Python 예측 스크립트가 실패했습니다.\n\n" + stderr
                 );
             }
 
@@ -2162,8 +2097,7 @@ namespace DonkeycarManager
             if (string.IsNullOrWhiteSpace(jsonLine))
             {
                 throw new Exception(
-                    "Python 예측 결과 JSON을 찾지 못했습니다.\n\n출력:\n" +
-                    stdout
+                    "Python 예측 결과 JSON을 찾지 못했습니다.\n\n출력:\n" + stdout
                 );
             }
 
@@ -2257,7 +2191,6 @@ namespace DonkeycarManager
                 return;
             }
 
-            // Extract the model filename from txtTrainArgs to correctly check its existence
             string modelFileName = "mypilot.h5";
             int modelIdx = trainArgsText.IndexOf("--model ");
             if (modelIdx >= 0)
@@ -2265,7 +2198,6 @@ namespace DonkeycarManager
                 string remainder = trainArgsText.Substring(modelIdx + "--model ".Length).Trim();
                 int spaceIdx = remainder.IndexOf(' ');
                 string modelArgPath = spaceIdx >= 0 ? remainder.Substring(0, spaceIdx) : remainder;
-
                 modelFileName = Path.GetFileName(modelArgPath);
             }
 
@@ -2279,12 +2211,6 @@ namespace DonkeycarManager
 
         private void DisposeCurrentImages()
         {
-            if (picFrame != null && picFrame.Image != null)
-            {
-                picFrame.Image.Dispose();
-                picFrame.Image = null;
-            }
-
             if (picCleanerPreview != null && picCleanerPreview.Image != null)
             {
                 picCleanerPreview.Image.Dispose();
@@ -2324,28 +2250,10 @@ namespace DonkeycarManager
                 DrawSteeringGapArea(e.Graphics, imgRect, overlayActualAngle.Value, overlayPredictedAngle.Value);
 
             if (overlayActualAngle.HasValue)
-            {
-                DrawSteeringOverlay(
-                    e.Graphics,
-                    imgRect,
-                    overlayActualAngle.Value,
-                    Color.DeepSkyBlue,
-                    5f,
-                    "Actual"
-                );
-            }
+                DrawSteeringOverlay(e.Graphics, imgRect, overlayActualAngle.Value, Color.DeepSkyBlue, 5f, "Actual");
 
             if (overlayPredictedAngle.HasValue)
-            {
-                DrawSteeringOverlay(
-                    e.Graphics,
-                    imgRect,
-                    overlayPredictedAngle.Value,
-                    Color.LimeGreen,
-                    5f,
-                    "Pred"
-                );
-            }
+                DrawSteeringOverlay(e.Graphics, imgRect, overlayPredictedAngle.Value, Color.LimeGreen, 5f, "Pred");
 
             DrawThrottleBars(e.Graphics, imgRect);
             DrawErrorPanel(e.Graphics, imgRect);
@@ -2373,7 +2281,6 @@ namespace DonkeycarManager
 
             using Font font = new Font("맑은 고딕", 10, FontStyle.Bold);
             using SolidBrush brush = new SolidBrush(color);
-
             g.DrawString($"{label}: {angle:F3}", font, brush, end.X + 8, end.Y - 10);
         }
 
@@ -2386,12 +2293,7 @@ namespace DonkeycarManager
             Color errorColor = GetErrorColor(error);
 
             using GraphicsPath path = new GraphicsPath();
-            path.AddPolygon(new PointF[]
-            {
-                startA,
-                endA,
-                endP
-            });
+            path.AddPolygon(new PointF[] { startA, endA, endP });
 
             using SolidBrush brush = new SolidBrush(Color.FromArgb(80, errorColor));
             g.FillPath(brush, path);
@@ -2538,10 +2440,7 @@ namespace DonkeycarManager
             float imageRatio = (float)pb.Image.Width / pb.Image.Height;
             float boxRatio = (float)pb.ClientSize.Width / pb.ClientSize.Height;
 
-            int drawWidth;
-            int drawHeight;
-            int drawX;
-            int drawY;
+            int drawWidth, drawHeight, drawX, drawY;
 
             if (imageRatio > boxRatio)
             {
@@ -2563,23 +2462,15 @@ namespace DonkeycarManager
 
         private Color GetErrorColor(double error)
         {
-            if (error <= 0.05)
-                return Color.LimeGreen;
-
-            if (error <= 0.15)
-                return Color.Orange;
-
+            if (error <= 0.05) return Color.LimeGreen;
+            if (error <= 0.15) return Color.Orange;
             return Color.Red;
         }
 
         private string GetErrorMessage(double error)
         {
-            if (error <= 0.05)
-                return "Good";
-
-            if (error <= 0.15)
-                return "Warning";
-
+            if (error <= 0.05) return "Good";
+            if (error <= 0.15) return "Warning";
             return "High Error";
         }
 
@@ -2596,11 +2487,11 @@ namespace DonkeycarManager
 
             System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][]
             {
-        new float[] { contrast, 0, 0, 0, 0 },
-        new float[] { 0, contrast, 0, 0, 0 },
-        new float[] { 0, 0, contrast, 0, 0 },
-        new float[] { 0, 0, 0, 1, 0 },
-        new float[] { t + brightness, t + brightness, t + brightness, 0, 1 }
+                new float[] { contrast, 0, 0, 0, 0 },
+                new float[] { 0, contrast, 0, 0, 0 },
+                new float[] { 0, 0, contrast, 0, 0 },
+                new float[] { 0, 0, 0, 1, 0 },
+                new float[] { t + brightness, t + brightness, t + brightness, 0, 1 }
             });
 
             using System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
@@ -2630,7 +2521,7 @@ namespace DonkeycarManager
         {
             if (string.IsNullOrWhiteSpace(dataFolderPath))
             {
-                MessageBox.Show("먼저 Viewer 탭에서 data 폴더를 열어주세요.");
+                MessageBox.Show("먼저 Cleaner 탭에서 data 폴더를 열어주세요.");
                 return;
             }
 
@@ -2681,11 +2572,11 @@ namespace DonkeycarManager
                             using Graphics g = Graphics.FromImage(gray);
                             System.Drawing.Imaging.ColorMatrix cm = new System.Drawing.Imaging.ColorMatrix(new float[][]
                             {
-                        new float[] { 0.299f, 0.299f, 0.299f, 0, 0 },
-                        new float[] { 0.587f, 0.587f, 0.587f, 0, 0 },
-                        new float[] { 0.114f, 0.114f, 0.114f, 0, 0 },
-                        new float[] { 0, 0, 0, 1, 0 },
-                        new float[] { 0, 0, 0, 0, 1 }
+                                new float[] { 0.299f, 0.299f, 0.299f, 0, 0 },
+                                new float[] { 0.587f, 0.587f, 0.587f, 0, 0 },
+                                new float[] { 0.114f, 0.114f, 0.114f, 0, 0 },
+                                new float[] { 0, 0, 0, 1, 0 },
+                                new float[] { 0, 0, 0, 0, 1 }
                             });
                             using System.Drawing.Imaging.ImageAttributes ia = new System.Drawing.Imaging.ImageAttributes();
                             ia.SetColorMatrix(cm);
@@ -2759,9 +2650,6 @@ namespace DonkeycarManager
         {
             try
             {
-                autoPlayTimer.Stop();
-                autoPlayTimer.Dispose();
-
                 cleanerRangePlayTimer.Stop();
                 cleanerRangePlayTimer.Dispose();
 
@@ -2779,31 +2667,32 @@ namespace DonkeycarManager
                 ClearCleanerTimelineThumbnailCache();
                 DisposeCurrentImages();
             }
-            catch
-            {
-            }
+            catch { }
 
             base.OnFormClosed(e);
         }
 
-        private void TbtnView_Click(object sender, EventArgs e)
+        private void TbtnClean_Click(object sender, EventArgs e)
         {
             tabMain.SelectedIndex = 0;
         }
 
-        private void TbtnClean_Click(object sender, EventArgs e)
+        private void TbtnTrain_Click(object sender, EventArgs e)
         {
             tabMain.SelectedIndex = 1;
         }
 
-        private void TbtnTrain_Click(object sender, EventArgs e)
+        private void TbtnPilot_Click(object sender, EventArgs e)
         {
             tabMain.SelectedIndex = 2;
         }
 
-        private void TbtnPilot_Click(object sender, EventArgs e)
+        public void SelectTab(int index)
         {
-            tabMain.SelectedIndex = 3;
+            if (tabMain.TabCount > index)
+                tabMain.SelectedIndex = index;
         }
+
+       
     }
 }
