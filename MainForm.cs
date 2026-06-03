@@ -191,7 +191,6 @@ namespace DonkeycarManager
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
 
-            trbFrame.Scroll += trbFrame_Scroll;
 
             // image adjustment events
             btnSaveProcessed.Click += btnSaveProcessed_Click;
@@ -1249,7 +1248,7 @@ namespace DonkeycarManager
             txtLog.Clear();
 
             await EnsurePredictOneScriptAsync();
-
+            ConvertCatalogToCsv(dataFolderPath);
             AppendLog("학습 시작");
             AppendLog("실행 방식: " + (useWsl ? "WSL + Conda" : "Windows Python"));
             AppendLog("mycar 경로 = " + mycarPath);
@@ -1306,6 +1305,75 @@ namespace DonkeycarManager
                     "5. Ubuntu 터미널에서 직접 학습 명령이 되는지 확인\n\n" +
                     ex.Message
                 );
+            }
+        }
+        private void ConvertCatalogToCsv(string dataPath)
+        {
+            try
+            {
+                var catalogFiles = Directory.GetFiles(
+                    dataPath,
+                    "catalog_*.catalog",
+                    SearchOption.TopDirectoryOnly
+                );
+
+                if (catalogFiles.Length == 0)
+                {
+                    AppendLog("[경고] catalog 파일 없음");
+                    return;
+                }
+
+                string csvPath = Path.Combine(dataPath, "training_data.csv");
+
+                using StreamWriter writer = new StreamWriter(
+                    csvPath,
+                    false,
+                    Encoding.UTF8
+                );
+
+                // 헤더
+                writer.WriteLine("image_path,angle,throttle");
+
+                foreach (var file in catalogFiles)
+                {
+                    foreach (string line in File.ReadLines(file))
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+
+                        try
+                        {
+                            using JsonDocument doc =
+                                JsonDocument.Parse(line);
+
+                            var root = doc.RootElement;
+
+                            string img =
+                                root.GetProperty("cam/image_array").GetString()
+                                ?? "";
+
+                            float angle =
+                                root.GetProperty("user/angle").GetSingle();
+
+                            float throttle =
+                                root.GetProperty("user/throttle").GetSingle();
+
+                            writer.WriteLine(
+                                $"{img},{angle},{throttle}"
+                            );
+                        }
+                        catch
+                        {
+                            AppendLog("[경고] catalog 파싱 실패");
+                        }
+                    }
+                }
+
+                AppendLog($"CSV 저장 완료: {csvPath}");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("CSV 변환 실패: " + ex.Message);
             }
         }
 
