@@ -16,7 +16,7 @@ namespace DonkeycarManager
         private TrackBar trbContrast;
         private Label lblBrightness;
         private Label lblContrast;
-       //폴더 선택 해제 버튼
+        //폴더 선택 해제 버튼
         private Button btnClearDataPath;
 
 
@@ -191,21 +191,19 @@ namespace DonkeycarManager
             btnClearDataPath.BackColor = SystemColors.Control;
             btnClearDataPath.FlatAppearance.BorderSize = 0;
             btnClearDataPath.FlatStyle = FlatStyle.Flat;
-            btnClearDataPath.Location = new Point(677, 19);
-            btnClearDataPath.Margin = new Padding(2, 1, 2, 1);
+            btnClearDataPath.Location = new Point(1354, 41);
             btnClearDataPath.Name = "btnClearDataPath";
-            btnClearDataPath.Size = new Size(42, 25);
+            btnClearDataPath.Size = new Size(85, 54);
             btnClearDataPath.TabIndex = 98;
             btnClearDataPath.UseVisualStyleBackColor = false;
             // 
             // cmbModelList
             // 
-            cmbModelList.BackColor = Color.White;
             cmbModelList.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbModelList.Location = new Point(188, 226);
             cmbModelList.Margin = new Padding(4);
             cmbModelList.Name = "cmbModelList";
-            cmbModelList.Size = new Size(421, 25);
+            cmbModelList.Size = new Size(838, 45);
             cmbModelList.TabIndex = 19;
             // 
             // btnScanModels
@@ -213,10 +211,10 @@ namespace DonkeycarManager
             btnScanModels.Location = new Point(1050, 224);
             btnScanModels.Margin = new Padding(4);
             btnScanModels.Name = "btnScanModels";
-            btnScanModels.Size = new Size(78, 25);
+            btnScanModels.Size = new Size(156, 53);
             btnScanModels.TabIndex = 20;
             btnScanModels.Text = "모델 스캔";
-            btnScanModels.UseVisualStyleBackColor = false;
+            btnScanModels.UseVisualStyleBackColor = true;
             // 
             // lblModelList
             // 
@@ -233,12 +231,12 @@ namespace DonkeycarManager
             trbBrightness.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             trbBrightness.AutoSize = false;
             trbBrightness.LargeChange = 10;
-            trbBrightness.Location = new Point(264, 292);
-            trbBrightness.Margin = new Padding(2, 2, 2, 2);
+            trbBrightness.Location = new Point(528, 623);
+            trbBrightness.Margin = new Padding(4);
             trbBrightness.Maximum = 100;
             trbBrightness.Minimum = -100;
             trbBrightness.Name = "trbBrightness";
-            trbBrightness.Size = new Size(124, 25);
+            trbBrightness.Size = new Size(248, 53);
             trbBrightness.SmallChange = 5;
             trbBrightness.TabIndex = 5;
             trbBrightness.TickStyle = TickStyle.None;
@@ -248,12 +246,12 @@ namespace DonkeycarManager
             trbContrast.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             trbContrast.AutoSize = false;
             trbContrast.LargeChange = 10;
-            trbContrast.Location = new Point(264, 328);
-            trbContrast.Margin = new Padding(2, 2, 2, 2);
+            trbContrast.Location = new Point(528, 700);
+            trbContrast.Margin = new Padding(4);
             trbContrast.Maximum = 100;
             trbContrast.Minimum = -100;
             trbContrast.Name = "trbContrast";
-            trbContrast.Size = new Size(124, 27);
+            trbContrast.Size = new Size(248, 58);
             trbContrast.SmallChange = 5;
             trbContrast.TabIndex = 7;
             trbContrast.TickStyle = TickStyle.None;
@@ -265,9 +263,10 @@ namespace DonkeycarManager
             btnOpenDataFolder.FlatAppearance.BorderSize = 0;
             btnOpenDataFolder.FlatStyle = FlatStyle.Flat;
             btnOpenDataFolder.ForeColor = Color.DimGray;
-            btnOpenDataFolder.Location = new Point(634, 19);
+            btnOpenDataFolder.Location = new Point(1269, 41);
+            btnOpenDataFolder.Margin = new Padding(6);
             btnOpenDataFolder.Name = "btnOpenDataFolder";
-            btnOpenDataFolder.Size = new Size(42, 25);
+            btnOpenDataFolder.Size = new Size(85, 54);
             btnOpenDataFolder.TabIndex = 2;
             btnOpenDataFolder.UseVisualStyleBackColor = false;
             // 
@@ -276,11 +275,10 @@ namespace DonkeycarManager
             txtDataPath.AllowDrop = true;
             txtDataPath.Font = new Font("맑은 고딕 Semilight", 12F, FontStyle.Regular, GraphicsUnit.Point, 129);
             txtDataPath.ForeColor = Color.DimGray;
-            txtDataPath.Location = new Point(249, 21);
-            txtDataPath.Margin = new Padding(2, 1, 2, 1);
+            txtDataPath.Location = new Point(498, 45);
             txtDataPath.Name = "txtDataPath";
             txtDataPath.ReadOnly = true;
-            txtDataPath.Size = new Size(387, 29);
+            txtDataPath.Size = new Size(770, 50);
             txtDataPath.TabIndex = 99;
             txtDataPath.Text = "폴더를 선택하거나 끌어오세요";
             // 
@@ -312,17 +310,17 @@ namespace DonkeycarManager
             tabMain.Controls.Add(tabCleaner);
             tabMain.Controls.Add(tabTrainer);
             tabMain.Controls.Add(tabPilotTest);
-            tabMain.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            tabMain.Font = new Font("맑은 고딕", 10F);
             tabMain.Location = new Point(0, 0);
-            tabMain.Margin = new Padding(2, 2, 2, 2);
+            tabMain.Margin = new Padding(4);
             tabMain.Name = "tabMain";
             tabMain.SelectedIndex = 0;
-            tabMain.Size = new Size(1089, 540);
+            tabMain.Size = new Size(2178, 1152);
             tabMain.TabIndex = 0;
             // 
             // tabCleaner
             // 
-            tabCleaner.BackColor = Color.FromArgb(246, 248, 251);
+            tabCleaner.BackColor = Color.WhiteSmoke;
             tabCleaner.Controls.Add(lblTitleCleaner);
             tabCleaner.Controls.Add(picCleanerPreview);
             tabCleaner.Controls.Add(btnOpenDataFolder);
@@ -343,8 +341,8 @@ namespace DonkeycarManager
             tabCleaner.Controls.Add(btnDeleteFrame);
             tabCleaner.Controls.Add(lstCleanerFrames);
             tabCleaner.Controls.Add(grpCleanerRangeEditor);
-            tabCleaner.Location = new Point(4, 26);
-            tabCleaner.Margin = new Padding(2, 2, 2, 2);
+            tabCleaner.Location = new Point(8, 51);
+            tabCleaner.Margin = new Padding(4);
             tabCleaner.Name = "tabCleaner";
             tabCleaner.Padding = new Padding(4);
             tabCleaner.Size = new Size(2162, 1093);
@@ -356,12 +354,12 @@ namespace DonkeycarManager
             lblTitleCleaner.AutoSize = true;
             lblTitleCleaner.Font = new Font("맑은 고딕", 22F, FontStyle.Bold);
             lblTitleCleaner.ForeColor = Color.FromArgb(180, 70, 70);
-            lblTitleCleaner.Location = new Point(7, 3);
-            lblTitleCleaner.Margin = new Padding(2, 0, 2, 0);
+            lblTitleCleaner.Location = new Point(32, 24);
+            lblTitleCleaner.Margin = new Padding(4, 0, 4, 0);
             lblTitleCleaner.Name = "lblTitleCleaner";
             lblTitleCleaner.Size = new Size(370, 78);
             lblTitleCleaner.TabIndex = 0;
-            lblTitleCleaner.Text = "데이터 편집";
+            lblTitleCleaner.Text = "Tub Cleaner";
             // 
             // picCleanerPreview
             // 
@@ -371,7 +369,7 @@ namespace DonkeycarManager
             picCleanerPreview.Location = new Point(32, 145);
             picCleanerPreview.Margin = new Padding(4);
             picCleanerPreview.Name = "picCleanerPreview";
-            picCleanerPreview.Size = new Size(662, 192);
+            picCleanerPreview.Size = new Size(1322, 407);
             picCleanerPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picCleanerPreview.TabIndex = 1;
             picCleanerPreview.TabStop = false;
@@ -426,15 +424,13 @@ namespace DonkeycarManager
             // btnSaveProcessed
             // 
             btnSaveProcessed.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            btnSaveProcessed.BackColor = Color.FromArgb(37, 99, 235);
-            btnSaveProcessed.FlatAppearance.BorderSize = 0;
+            btnSaveProcessed.BackColor = Color.FromArgb(70, 110, 160);
             btnSaveProcessed.FlatStyle = FlatStyle.Flat;
-            btnSaveProcessed.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnSaveProcessed.ForeColor = Color.White;
-            btnSaveProcessed.Location = new Point(448, 314);
-            btnSaveProcessed.Margin = new Padding(2, 2, 2, 2);
+            btnSaveProcessed.Location = new Point(896, 670);
+            btnSaveProcessed.Margin = new Padding(4);
             btnSaveProcessed.Name = "btnSaveProcessed";
-            btnSaveProcessed.Size = new Size(124, 31);
+            btnSaveProcessed.Size = new Size(248, 66);
             btnSaveProcessed.TabIndex = 10;
             btnSaveProcessed.Text = "조작 데이터 저장";
             btnSaveProcessed.UseVisualStyleBackColor = false;
@@ -442,15 +438,14 @@ namespace DonkeycarManager
             // grpFilters
             // 
             grpFilters.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            grpFilters.BackColor = Color.FromArgb(246, 248, 251);
             grpFilters.Controls.Add(chkThrottlePositive);
             grpFilters.Controls.Add(chkExcludeZeroAngle);
             grpFilters.Controls.Add(chkStopDataOnly);
             grpFilters.Location = new Point(1400, 119);
             grpFilters.Margin = new Padding(4);
             grpFilters.Name = "grpFilters";
-            grpFilters.Padding = new Padding(2, 2, 2, 2);
-            grpFilters.Size = new Size(241, 116);
+            grpFilters.Padding = new Padding(4);
+            grpFilters.Size = new Size(482, 247);
             grpFilters.TabIndex = 11;
             grpFilters.TabStop = false;
             grpFilters.Text = "필터 조건";
@@ -494,10 +489,10 @@ namespace DonkeycarManager
             btnApplyFilter.Location = new Point(1912, 128);
             btnApplyFilter.Margin = new Padding(4);
             btnApplyFilter.Name = "btnApplyFilter";
-            btnApplyFilter.Size = new Size(101, 30);
+            btnApplyFilter.Size = new Size(202, 64);
             btnApplyFilter.TabIndex = 12;
             btnApplyFilter.Text = "필터 적용";
-            btnApplyFilter.UseVisualStyleBackColor = false;
+            btnApplyFilter.UseVisualStyleBackColor = true;
             // 
             // btnClearFilter
             // 
@@ -505,21 +500,20 @@ namespace DonkeycarManager
             btnClearFilter.Location = new Point(1912, 215);
             btnClearFilter.Margin = new Padding(4);
             btnClearFilter.Name = "btnClearFilter";
-            btnClearFilter.Size = new Size(101, 30);
+            btnClearFilter.Size = new Size(202, 64);
             btnClearFilter.TabIndex = 13;
             btnClearFilter.Text = "전체 보기";
-            btnClearFilter.UseVisualStyleBackColor = false;
+            btnClearFilter.UseVisualStyleBackColor = true;
             // 
             // btnDeleteFrame
             // 
             btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDeleteFrame.BackColor = Color.FromArgb(220, 38, 38);
-            btnDeleteFrame.FlatAppearance.BorderSize = 0;
+            btnDeleteFrame.BackColor = Color.LightCoral;
             btnDeleteFrame.FlatStyle = FlatStyle.Flat;
             btnDeleteFrame.Location = new Point(1912, 303);
             btnDeleteFrame.Margin = new Padding(4);
             btnDeleteFrame.Name = "btnDeleteFrame";
-            btnDeleteFrame.Size = new Size(101, 38);
+            btnDeleteFrame.Size = new Size(202, 81);
             btnDeleteFrame.TabIndex = 14;
             btnDeleteFrame.Text = "선택 프레임 삭제";
             btnDeleteFrame.UseVisualStyleBackColor = false;
@@ -527,13 +521,10 @@ namespace DonkeycarManager
             // lstCleanerFrames
             // 
             lstCleanerFrames.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            lstCleanerFrames.BackColor = Color.White;
-            lstCleanerFrames.BorderStyle = BorderStyle.FixedSingle;
             lstCleanerFrames.Font = new Font("Consolas", 9F);
-            lstCleanerFrames.ForeColor = Color.FromArgb(24, 32, 43);
             lstCleanerFrames.HorizontalScrollbar = true;
-            lstCleanerFrames.Location = new Point(700, 191);
-            lstCleanerFrames.Margin = new Padding(2, 2, 2, 2);
+            lstCleanerFrames.Location = new Point(1400, 407);
+            lstCleanerFrames.Margin = new Padding(4);
             lstCleanerFrames.Name = "lstCleanerFrames";
             lstCleanerFrames.SelectionMode = SelectionMode.MultiExtended;
             lstCleanerFrames.Size = new Size(712, 256);
@@ -542,7 +533,6 @@ namespace DonkeycarManager
             // grpCleanerRangeEditor
             // 
             grpCleanerRangeEditor.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            grpCleanerRangeEditor.BackColor = Color.FromArgb(246, 248, 251);
             grpCleanerRangeEditor.Controls.Add(lblCleanerRangeInfo);
             grpCleanerRangeEditor.Controls.Add(lblCleanerRangeHint);
             grpCleanerRangeEditor.Controls.Add(pnlCleanerTimeline);
@@ -588,27 +578,26 @@ namespace DonkeycarManager
             // pnlCleanerTimeline
             // 
             pnlCleanerTimeline.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            pnlCleanerTimeline.BackColor = Color.FromArgb(15, 23, 42);
+            pnlCleanerTimeline.BackColor = Color.FromArgb(18, 26, 42);
             pnlCleanerTimeline.BorderStyle = BorderStyle.FixedSingle;
-            pnlCleanerTimeline.Location = new Point(10, 54);
-            pnlCleanerTimeline.Margin = new Padding(2, 2, 2, 2);
+            pnlCleanerTimeline.Location = new Point(20, 115);
+            pnlCleanerTimeline.Margin = new Padding(4);
             pnlCleanerTimeline.Name = "pnlCleanerTimeline";
-            pnlCleanerTimeline.Size = new Size(825, 62);
+            pnlCleanerTimeline.Size = new Size(1648, 130);
             pnlCleanerTimeline.TabIndex = 2;
             // 
             // hsbCleanerTimeline
             // 
             hsbCleanerTimeline.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             hsbCleanerTimeline.LargeChange = 1;
-            hsbCleanerTimeline.Location = new Point(12, 110);
+            hsbCleanerTimeline.Location = new Point(24, 235);
             hsbCleanerTimeline.Maximum = 0;
             hsbCleanerTimeline.Name = "hsbCleanerTimeline";
-            hsbCleanerTimeline.Size = new Size(824, 22);
+            hsbCleanerTimeline.Size = new Size(1648, 22);
             hsbCleanerTimeline.TabIndex = 3;
             // 
             // lblCleanerTimelineScrollInfo
             // 
-            lblCleanerTimelineScrollInfo.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblCleanerTimelineScrollInfo.AutoSize = true;
             lblCleanerTimelineScrollInfo.ForeColor = Color.DimGray;
             lblCleanerTimelineScrollInfo.Location = new Point(24, 269);
@@ -621,15 +610,13 @@ namespace DonkeycarManager
             // btnDeleteRange
             // 
             btnDeleteRange.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDeleteRange.BackColor = Color.FromArgb(220, 38, 38);
-            btnDeleteRange.FlatAppearance.BorderSize = 0;
+            btnDeleteRange.BackColor = Color.FromArgb(180, 60, 50);
             btnDeleteRange.FlatStyle = FlatStyle.Flat;
-            btnDeleteRange.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnDeleteRange.ForeColor = Color.White;
-            btnDeleteRange.Location = new Point(852, 44);
-            btnDeleteRange.Margin = new Padding(2, 2, 2, 2);
+            btnDeleteRange.Location = new Point(1704, 94);
+            btnDeleteRange.Margin = new Padding(4);
             btnDeleteRange.Name = "btnDeleteRange";
-            btnDeleteRange.Size = new Size(82, 25);
+            btnDeleteRange.Size = new Size(164, 53);
             btnDeleteRange.TabIndex = 5;
             btnDeleteRange.Text = "구간 삭제";
             btnDeleteRange.UseVisualStyleBackColor = false;
@@ -637,15 +624,13 @@ namespace DonkeycarManager
             // btnPlayRange
             // 
             btnPlayRange.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnPlayRange.BackColor = Color.FromArgb(37, 99, 235);
-            btnPlayRange.FlatAppearance.BorderSize = 0;
+            btnPlayRange.BackColor = Color.FromArgb(70, 110, 160);
             btnPlayRange.FlatStyle = FlatStyle.Flat;
-            btnPlayRange.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnPlayRange.ForeColor = Color.White;
-            btnPlayRange.Location = new Point(941, 44);
-            btnPlayRange.Margin = new Padding(2, 2, 2, 2);
+            btnPlayRange.Location = new Point(1882, 94);
+            btnPlayRange.Margin = new Padding(4);
             btnPlayRange.Name = "btnPlayRange";
-            btnPlayRange.Size = new Size(82, 25);
+            btnPlayRange.Size = new Size(164, 53);
             btnPlayRange.TabIndex = 6;
             btnPlayRange.Text = "구간 재생";
             btnPlayRange.UseVisualStyleBackColor = false;
@@ -656,23 +641,21 @@ namespace DonkeycarManager
             btnClearRange.Location = new Point(1704, 162);
             btnClearRange.Margin = new Padding(4);
             btnClearRange.Name = "btnClearRange";
-            btnClearRange.Size = new Size(82, 25);
+            btnClearRange.Size = new Size(164, 53);
             btnClearRange.TabIndex = 7;
             btnClearRange.Text = "구간 해제";
-            btnClearRange.UseVisualStyleBackColor = false;
+            btnClearRange.UseVisualStyleBackColor = true;
             // 
             // btnCleanerAutoPlay
             // 
             btnCleanerAutoPlay.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCleanerAutoPlay.BackColor = Color.FromArgb(22, 163, 74);
-            btnCleanerAutoPlay.FlatAppearance.BorderSize = 0;
+            btnCleanerAutoPlay.BackColor = Color.FromArgb(76, 175, 80);
             btnCleanerAutoPlay.FlatStyle = FlatStyle.Flat;
-            btnCleanerAutoPlay.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnCleanerAutoPlay.ForeColor = Color.White;
-            btnCleanerAutoPlay.Location = new Point(941, 76);
-            btnCleanerAutoPlay.Margin = new Padding(2, 2, 2, 2);
+            btnCleanerAutoPlay.Location = new Point(1882, 162);
+            btnCleanerAutoPlay.Margin = new Padding(4);
             btnCleanerAutoPlay.Name = "btnCleanerAutoPlay";
-            btnCleanerAutoPlay.Size = new Size(82, 25);
+            btnCleanerAutoPlay.Size = new Size(164, 53);
             btnCleanerAutoPlay.TabIndex = 8;
             btnCleanerAutoPlay.Text = "자동 재생";
             btnCleanerAutoPlay.UseVisualStyleBackColor = false;
@@ -683,14 +666,14 @@ namespace DonkeycarManager
             btnCleanerStop.Location = new Point(1704, 235);
             btnCleanerStop.Margin = new Padding(4);
             btnCleanerStop.Name = "btnCleanerStop";
-            btnCleanerStop.Size = new Size(171, 25);
+            btnCleanerStop.Size = new Size(342, 53);
             btnCleanerStop.TabIndex = 9;
             btnCleanerStop.Text = "멈춤";
-            btnCleanerStop.UseVisualStyleBackColor = false;
+            btnCleanerStop.UseVisualStyleBackColor = true;
             // 
             // tabTrainer
             // 
-            tabTrainer.BackColor = Color.FromArgb(246, 248, 251);
+            tabTrainer.BackColor = Color.WhiteSmoke;
             tabTrainer.Controls.Add(lblTitleTrainer);
             tabTrainer.Controls.Add(lblMycarPath);
             tabTrainer.Controls.Add(txtMycarPath);
@@ -703,8 +686,8 @@ namespace DonkeycarManager
             tabTrainer.Controls.Add(btnStopTrain);
             tabTrainer.Controls.Add(lblModelStatus);
             tabTrainer.Controls.Add(lblTrainInfo);
-            tabTrainer.Location = new Point(4, 26);
-            tabTrainer.Margin = new Padding(2, 2, 2, 2);
+            tabTrainer.Location = new Point(8, 51);
+            tabTrainer.Margin = new Padding(4);
             tabTrainer.Name = "tabTrainer";
             tabTrainer.Padding = new Padding(4);
             tabTrainer.Size = new Size(2162, 1093);
@@ -721,7 +704,7 @@ namespace DonkeycarManager
             lblTitleTrainer.Name = "lblTitleTrainer";
             lblTitleTrainer.Size = new Size(548, 78);
             lblTitleTrainer.TabIndex = 0;
-            lblTitleTrainer.Text = "데이터 학습";
+            lblTitleTrainer.Text = "Donkeycar Trainer";
             // 
             // lblMycarPath
             // 
@@ -746,10 +729,10 @@ namespace DonkeycarManager
             btnBrowseMycar.Location = new Point(1384, 151);
             btnBrowseMycar.Margin = new Padding(4);
             btnBrowseMycar.Name = "btnBrowseMycar";
-            btnBrowseMycar.Size = new Size(70, 25);
+            btnBrowseMycar.Size = new Size(140, 53);
             btnBrowseMycar.TabIndex = 3;
             btnBrowseMycar.Text = "찾기";
-            btnBrowseMycar.UseVisualStyleBackColor = false;
+            btnBrowseMycar.UseVisualStyleBackColor = true;
             // 
             // lblPythonExe
             // 
@@ -789,29 +772,27 @@ namespace DonkeycarManager
             // 
             // btnTrain
             // 
-            btnTrain.BackColor = Color.FromArgb(22, 163, 74);
-            btnTrain.FlatAppearance.BorderSize = 0;
+            btnTrain.BackColor = Color.FromArgb(76, 175, 80);
             btnTrain.FlatStyle = FlatStyle.Flat;
-            btnTrain.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            btnTrain.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             btnTrain.ForeColor = Color.White;
-            btnTrain.Location = new Point(116, 202);
-            btnTrain.Margin = new Padding(2, 2, 2, 2);
+            btnTrain.Location = new Point(232, 431);
+            btnTrain.Margin = new Padding(4);
             btnTrain.Name = "btnTrain";
-            btnTrain.Size = new Size(124, 38);
+            btnTrain.Size = new Size(248, 81);
             btnTrain.TabIndex = 8;
             btnTrain.Text = "학습 시작";
             btnTrain.UseVisualStyleBackColor = false;
             // 
             // btnStopTrain
             // 
-            btnStopTrain.BackColor = Color.FromArgb(220, 38, 38);
-            btnStopTrain.FlatAppearance.BorderSize = 0;
+            btnStopTrain.BackColor = Color.LightCoral;
             btnStopTrain.FlatStyle = FlatStyle.Flat;
             btnStopTrain.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             btnStopTrain.Location = new Point(512, 431);
             btnStopTrain.Margin = new Padding(4);
             btnStopTrain.Name = "btnStopTrain";
-            btnStopTrain.Size = new Size(124, 38);
+            btnStopTrain.Size = new Size(248, 81);
             btnStopTrain.TabIndex = 9;
             btnStopTrain.Text = "학습 중지";
             btnStopTrain.UseVisualStyleBackColor = false;
@@ -840,7 +821,7 @@ namespace DonkeycarManager
             // 
             // tabPilotTest
             // 
-            tabPilotTest.BackColor = Color.FromArgb(246, 248, 251);
+            tabPilotTest.BackColor = Color.WhiteSmoke;
             tabPilotTest.Controls.Add(lblTitlePilot);
             tabPilotTest.Controls.Add(lblModelPath);
             tabPilotTest.Controls.Add(txtModelPath);
@@ -862,11 +843,11 @@ namespace DonkeycarManager
             tabPilotTest.Controls.Add(lblModelList);
             tabPilotTest.Controls.Add(cmbModelList);
             tabPilotTest.Controls.Add(btnScanModels);
-            tabPilotTest.Location = new Point(4, 26);
-            tabPilotTest.Margin = new Padding(2, 2, 2, 2);
+            tabPilotTest.Location = new Point(8, 51);
+            tabPilotTest.Margin = new Padding(4);
             tabPilotTest.Name = "tabPilotTest";
-            tabPilotTest.Padding = new Padding(2, 2, 2, 2);
-            tabPilotTest.Size = new Size(1081, 510);
+            tabPilotTest.Padding = new Padding(4);
+            tabPilotTest.Size = new Size(2162, 1093);
             tabPilotTest.TabIndex = 2;
             tabPilotTest.Text = "Pilot Test - 모델 테스트";
             // 
@@ -880,7 +861,7 @@ namespace DonkeycarManager
             lblTitlePilot.Name = "lblTitlePilot";
             lblTitlePilot.Size = new Size(731, 78);
             lblTitlePilot.TabIndex = 0;
-            lblTitlePilot.Text = "주행/모델 테스트";
+            lblTitlePilot.Text = "Pilot Arena / Model Test";
             // 
             // lblModelPath
             // 
@@ -905,42 +886,40 @@ namespace DonkeycarManager
             btnBrowseModel.Location = new Point(1212, 151);
             btnBrowseModel.Margin = new Padding(4);
             btnBrowseModel.Name = "btnBrowseModel";
-            btnBrowseModel.Size = new Size(70, 25);
+            btnBrowseModel.Size = new Size(140, 53);
             btnBrowseModel.TabIndex = 3;
             btnBrowseModel.Text = "찾기";
-            btnBrowseModel.UseVisualStyleBackColor = false;
+            btnBrowseModel.UseVisualStyleBackColor = true;
             // 
             // btnRunPilotTest
             // 
             btnRunPilotTest.Location = new Point(188, 303);
             btnRunPilotTest.Margin = new Padding(4);
             btnRunPilotTest.Name = "btnRunPilotTest";
-            btnRunPilotTest.Size = new Size(194, 31);
+            btnRunPilotTest.Size = new Size(388, 66);
             btnRunPilotTest.TabIndex = 4;
             btnRunPilotTest.Text = "현재 이미지로 예측 테스트";
-            btnRunPilotTest.UseVisualStyleBackColor = false;
+            btnRunPilotTest.UseVisualStyleBackColor = true;
             // 
             // btnUseViewerFrame
             // 
             btnUseViewerFrame.Location = new Point(592, 303);
             btnUseViewerFrame.Margin = new Padding(4);
             btnUseViewerFrame.Name = "btnUseViewerFrame";
-            btnUseViewerFrame.Size = new Size(164, 31);
+            btnUseViewerFrame.Size = new Size(328, 66);
             btnUseViewerFrame.TabIndex = 5;
             btnUseViewerFrame.Text = "Viewer 선택 이미지 사용";
-            btnUseViewerFrame.UseVisualStyleBackColor = false;
+            btnUseViewerFrame.UseVisualStyleBackColor = true;
             // 
             // btnPilotAutoPlay
             // 
-            btnPilotAutoPlay.BackColor = Color.FromArgb(22, 163, 74);
-            btnPilotAutoPlay.FlatAppearance.BorderSize = 0;
+            btnPilotAutoPlay.BackColor = Color.FromArgb(76, 175, 80);
             btnPilotAutoPlay.FlatStyle = FlatStyle.Flat;
-            btnPilotAutoPlay.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnPilotAutoPlay.ForeColor = Color.White;
-            btnPilotAutoPlay.Location = new Point(466, 142);
-            btnPilotAutoPlay.Margin = new Padding(2, 2, 2, 2);
+            btnPilotAutoPlay.Location = new Point(932, 303);
+            btnPilotAutoPlay.Margin = new Padding(4);
             btnPilotAutoPlay.Name = "btnPilotAutoPlay";
-            btnPilotAutoPlay.Size = new Size(94, 31);
+            btnPilotAutoPlay.Size = new Size(188, 66);
             btnPilotAutoPlay.TabIndex = 6;
             btnPilotAutoPlay.Text = "자동 재생";
             btnPilotAutoPlay.UseVisualStyleBackColor = false;
@@ -950,13 +929,14 @@ namespace DonkeycarManager
             btnPilotStop.Location = new Point(1136, 303);
             btnPilotStop.Margin = new Padding(4);
             btnPilotStop.Name = "btnPilotStop";
-            btnPilotStop.Size = new Size(78, 31);
+            btnPilotStop.Size = new Size(156, 66);
             btnPilotStop.TabIndex = 7;
             btnPilotStop.Text = "멈춤";
-            btnPilotStop.UseVisualStyleBackColor = false;
+            btnPilotStop.UseVisualStyleBackColor = true;
             // 
             // picPilotTest
             // 
+            picPilotTest.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             picPilotTest.BackColor = Color.Black;
             picPilotTest.BorderStyle = BorderStyle.FixedSingle;
             picPilotTest.Location = new Point(48, 401);
@@ -1040,7 +1020,7 @@ namespace DonkeycarManager
             lblPilotNote.Location = new Point(948, 864);
             lblPilotNote.Margin = new Padding(4, 0, 4, 0);
             lblPilotNote.Name = "lblPilotNote";
-            lblPilotNote.Size = new Size(186, 112);
+            lblPilotNote.Size = new Size(372, 239);
             lblPilotNote.TabIndex = 15;
             lblPilotNote.Text = "파란선: 실제 angle\n초록선: 예측 angle\n노란 반투명 영역:\n실제/예측 차이\n하단 막대:\n실제/예측 throttle 비교";
             // 
@@ -1057,10 +1037,8 @@ namespace DonkeycarManager
             // 
             // lstPilotFrames
             // 
-            lstPilotFrames.BackColor = Color.White;
-            lstPilotFrames.BorderStyle = BorderStyle.FixedSingle;
+            lstPilotFrames.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lstPilotFrames.Font = new Font("Consolas", 10F);
-            lstPilotFrames.ForeColor = Color.FromArgb(24, 32, 43);
             lstPilotFrames.HorizontalScrollbar = true;
             lstPilotFrames.Location = new Point(1368, 448);
             lstPilotFrames.Margin = new Padding(4);
@@ -1071,8 +1049,6 @@ namespace DonkeycarManager
             // txtLog
             // 
             txtLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            txtLog.BackColor = Color.FromArgb(15, 23, 42);
-            txtLog.BorderStyle = BorderStyle.None;
             txtLog.Font = new Font("Consolas", 9F);
             txtLog.Location = new Point(0, 1161);
             txtLog.Margin = new Padding(4);
@@ -1080,19 +1056,19 @@ namespace DonkeycarManager
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Size = new Size(1090, 132);
+            txtLog.Size = new Size(2176, 277);
             txtLog.TabIndex = 1;
             // 
             // MainForm
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(14F, 32F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.WhiteSmoke;
             ClientSize = new Size(2178, 1421);
             Controls.Add(tabMain);
             Controls.Add(txtLog);
-            Margin = new Padding(2, 2, 2, 2);
-            MinimumSize = new Size(991, 599);
+            Margin = new Padding(4);
+            MinimumSize = new Size(1966, 1234);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Donkeycar Manager";
