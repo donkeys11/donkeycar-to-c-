@@ -18,6 +18,7 @@ namespace DonkeycarManager
         private Label lblContrast;
         //폴더 선택 해제 버튼
         private Button btnClearDataPath;
+        private Button btnUndo;
 
 
         private TabControl tabMain;
@@ -119,6 +120,9 @@ namespace DonkeycarManager
             tabCleaner = new TabPage();
             lblTitleCleaner = new Label();
             picCleanerPreview = new PictureBox();
+            btnApplyFilter = new Button();
+            btnClearFilter = new Button();
+            btnUndo = new Button();
             lblCleanerInfo = new Label();
             lblImageAdjust = new Label();
             chkFlipHorizontal = new CheckBox();
@@ -129,8 +133,6 @@ namespace DonkeycarManager
             chkThrottlePositive = new CheckBox();
             chkExcludeZeroAngle = new CheckBox();
             chkStopDataOnly = new CheckBox();
-            btnApplyFilter = new Button();
-            btnClearFilter = new Button();
             btnDeleteFrame = new Button();
             lstCleanerFrames = new ListBox();
             grpCleanerRangeEditor = new GroupBox();
@@ -329,8 +331,11 @@ namespace DonkeycarManager
             tabCleaner.Controls.Add(lblTitleCleaner);
             tabCleaner.Controls.Add(picCleanerPreview);
             tabCleaner.Controls.Add(btnOpenDataFolder);
+            tabCleaner.Controls.Add(btnApplyFilter);
             tabCleaner.Controls.Add(txtDataPath);
+            tabCleaner.Controls.Add(btnClearFilter);
             tabCleaner.Controls.Add(btnClearDataPath);
+            tabCleaner.Controls.Add(btnUndo);
             tabCleaner.Controls.Add(lblCleanerInfo);
             tabCleaner.Controls.Add(lblImageAdjust);
             tabCleaner.Controls.Add(lblBrightness);
@@ -341,8 +346,6 @@ namespace DonkeycarManager
             tabCleaner.Controls.Add(chkGrayscale);
             tabCleaner.Controls.Add(btnSaveProcessed);
             tabCleaner.Controls.Add(grpFilters);
-            tabCleaner.Controls.Add(btnApplyFilter);
-            tabCleaner.Controls.Add(btnClearFilter);
             tabCleaner.Controls.Add(btnDeleteFrame);
             tabCleaner.Controls.Add(lstCleanerFrames);
             tabCleaner.Controls.Add(grpCleanerRangeEditor);
@@ -378,6 +381,43 @@ namespace DonkeycarManager
             picCleanerPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picCleanerPreview.TabIndex = 1;
             picCleanerPreview.TabStop = false;
+            // 
+            // btnApplyFilter
+            // 
+            btnApplyFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnApplyFilter.Location = new Point(2329, 337);
+            btnApplyFilter.Margin = new Padding(4);
+            btnApplyFilter.Name = "btnApplyFilter";
+            btnApplyFilter.Size = new Size(178, 64);
+            btnApplyFilter.TabIndex = 12;
+            btnApplyFilter.Text = "필터 적용";
+            btnApplyFilter.UseVisualStyleBackColor = true;
+            // 
+            // btnClearFilter
+            // 
+            btnClearFilter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClearFilter.Location = new Point(2329, 265);
+            btnClearFilter.Margin = new Padding(4);
+            btnClearFilter.Name = "btnClearFilter";
+            btnClearFilter.Size = new Size(178, 64);
+            btnClearFilter.TabIndex = 13;
+            btnClearFilter.Text = "전체 보기";
+            btnClearFilter.UseVisualStyleBackColor = true;
+            // 
+            // btnUndo
+            // 
+            btnUndo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnUndo.BackColor = Color.FromArgb(255, 200, 100);
+            btnUndo.FlatAppearance.BorderSize = 0;
+            btnUndo.FlatStyle = FlatStyle.Flat;
+            btnUndo.Font = new Font("Segoe MDL2 Assets", 14F);
+            btnUndo.ForeColor = Color.White;
+            btnUndo.Location = new Point(2458, 409);
+            btnUndo.Name = "btnUndo";
+            btnUndo.Size = new Size(113, 55);
+            btnUndo.TabIndex = 97;
+            btnUndo.Text = "";
+            btnUndo.UseVisualStyleBackColor = false;
             // 
             // lblCleanerInfo
             // 
@@ -526,12 +566,11 @@ namespace DonkeycarManager
             btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnDeleteFrame.BackColor = Color.LightCoral;
             btnDeleteFrame.FlatStyle = FlatStyle.Flat;
-            btnDeleteFrame.Location = new Point(966, 116);
-            btnDeleteFrame.Margin = new Padding(2);
+            btnDeleteFrame.Location = new Point(2338, 409);
+            btnDeleteFrame.Margin = new Padding(4);
             btnDeleteFrame.Name = "btnDeleteFrame";
-            btnDeleteFrame.Size = new Size(101, 52);
+            btnDeleteFrame.Size = new Size(113, 54);
             btnDeleteFrame.TabIndex = 14;
-            btnDeleteFrame.Text = "선택 프레임 \r\n삭제";
             btnDeleteFrame.UseVisualStyleBackColor = false;
             // 
             // lstCleanerFrames
@@ -633,7 +672,6 @@ namespace DonkeycarManager
             btnDeleteRange.Name = "btnDeleteRange";
             btnDeleteRange.Size = new Size(82, 25);
             btnDeleteRange.TabIndex = 5;
-            btnDeleteRange.Text = "구간 삭제";
             btnDeleteRange.UseVisualStyleBackColor = false;
             // 
             // btnPlayRange
