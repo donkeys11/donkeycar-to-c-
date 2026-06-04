@@ -461,9 +461,9 @@ namespace DonkeycarManager
             chkExcludeJitterAngle.AutoSize = true;
             chkExcludeJitterAngle.Location = new Point(16, 84);
             chkExcludeJitterAngle.Name = "chkExcludeJitterAngle";
-            chkExcludeJitterAngle.Size = new Size(152, 23);
+            chkExcludeJitterAngle.Size = new Size(133, 23);
             chkExcludeJitterAngle.TabIndex = 3;
-            chkExcludeJitterAngle.Text = "angle < 0.3 값 제외";
+            chkExcludeJitterAngle.Text = "angle < 0.3 제외";
             chkExcludeJitterAngle.UseVisualStyleBackColor = true;
             // 
             // chkThrottlePositive
@@ -695,7 +695,7 @@ namespace DonkeycarManager
             tabTrainer.Margin = new Padding(2);
             tabTrainer.Name = "tabTrainer";
             tabTrainer.Padding = new Padding(2);
-            tabTrainer.Size = new Size(1142, 569);
+            tabTrainer.Size = new Size(945, 434);
             tabTrainer.TabIndex = 1;
             tabTrainer.Text = "학습 실행";
             // 
@@ -872,7 +872,7 @@ namespace DonkeycarManager
             tabPilotTest.Margin = new Padding(2);
             tabPilotTest.Name = "tabPilotTest";
             tabPilotTest.Padding = new Padding(2);
-            tabPilotTest.Size = new Size(1142, 569);
+            tabPilotTest.Size = new Size(945, 434);
             tabPilotTest.TabIndex = 2;
             tabPilotTest.Text = "모델 테스트";
             // 
