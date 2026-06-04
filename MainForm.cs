@@ -51,6 +51,7 @@ namespace DonkeycarManager
         private int cleanerRangeEndIndex = -1;
         private int cleanerRangePlayIndex = -1;
         private bool isDraggingCleanerRange = false;
+        private List<string> backupFolderPaths = new List<string>();
 
         public MainForm()
         {
@@ -90,7 +91,59 @@ namespace DonkeycarManager
 
             btnPlayRange.Text = "";
             btnPlayRange.Paint += BtnPlayRange_Paint;
+
+           
+            btnDeleteFrame.Paint += BtnDelete_Paint;
+
+            
+            btnDeleteRange.Paint += BtnDelete_Paint;
+
+
+            
         }
+
+
+        private void BtnDelete_Paint(object? sender, PaintEventArgs e)
+        {
+            Button btn = (Button)sender!;
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int s = Math.Min(btn.Width, btn.Height);
+            int u = s / 8;
+            int cx = btn.Width / 2;
+            int cy = btn.Height / 2;
+
+            using Pen pen = new Pen(Color.White, Math.Max(1.5f, u * 0.6f))
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+
+            // 뚜껑
+            int lidW = u * 4, lidH = u;
+            g.DrawLine(pen, cx - lidW / 2, cy - u * 2, cx + lidW / 2, cy - u * 2);
+            // 손잡이
+            g.DrawLine(pen, cx - u, cy - u * 2, cx - u, cy - u * 3);
+            g.DrawLine(pen, cx + u, cy - u * 2, cx + u, cy - u * 3);
+            // 몸통
+            int bx = cx - u * 2, by = cy - u * 2 + u;
+            int bw = u * 4, bh = u * 4;
+            using GraphicsPath body = new GraphicsPath();
+            body.AddLine(bx + u / 2, by, bx + bw - u / 2, by);
+            body.AddLine(bx + bw - u / 2, by, bx + bw - u, by + bh);
+            body.AddLine(bx + bw - u, by + bh, bx + u, by + bh);
+            body.AddLine(bx + u, by + bh, bx + u / 2, by);
+            g.DrawPath(pen, body);
+            // 세로선
+            g.DrawLine(pen, cx, by + u / 2, cx, by + bh - u / 2);
+            g.DrawLine(pen, cx - u, by + u / 2, cx - u, by + bh - u / 2);
+            g.DrawLine(pen, cx + u, by + u / 2, cx + u, by + bh - u / 2);
+        }
+
+        
+
 
         private void BtnPlayRange_Paint(object? sender, PaintEventArgs e)
         {
@@ -210,6 +263,7 @@ namespace DonkeycarManager
             cmbModelList.SelectedIndexChanged += cmbModelList_SelectedIndexChanged;
 
             btnOpenDataFolder.Click += btnOpenDataFolder_Click;
+            btnUndo.Click += btnUndo_Click;
 
             btnApplyFilter.Click += btnApplyFilter_Click;
             btnClearFilter.Click += btnClearFilter_Click;
@@ -248,6 +302,11 @@ namespace DonkeycarManager
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
+        }
+
+        private void btnUndo_Click(object? sender, EventArgs e)
+        {
+            UndoLastDelete();
         }
 
         private void btnClearDataPath_Click(object? sender, EventArgs e)
@@ -1808,6 +1867,7 @@ namespace DonkeycarManager
                 }
 
                 AppendLog($"통합 백업 폴더 생성 완료: {backupFolder}");
+                backupFolderPaths.Add(backupFolder);
                 return backupFolder; // 백업된 통합 폴더 경로를 반환!
             }
             catch (Exception ex)
@@ -1816,6 +1876,99 @@ namespace DonkeycarManager
                 return string.Empty;
             }
         }
+
+
+        private void UndoLastDelete()
+        {
+            if (backupFolderPaths.Count == 0)
+            {
+                MessageBox.Show("되돌릴 내용이 없습니다.");
+                return;
+            }
+
+            // 백업 목록을 드롭다운으로 보여주기
+            using Form selectForm = new Form();
+            selectForm.Text = "되돌릴 시점 선택";
+            selectForm.Size = new Size(500, 300);
+            selectForm.StartPosition = FormStartPosition.CenterParent;
+            selectForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+            selectForm.MaximizeBox = false;
+
+            ListBox lst = new ListBox();
+            lst.Dock = DockStyle.Fill;
+            lst.Font = new Font("맑은 고딕", 10F);
+
+            foreach (string path in backupFolderPaths)
+            {
+                string folderName = Path.GetFileName(path);
+                // yyyyMMdd_HHmmss → yyyy-MM-dd HH:mm:ss
+                string display = folderName.Length == 15
+                    ? $"{folderName.Substring(0, 4)}-{folderName.Substring(4, 2)}-{folderName.Substring(6, 2)} {folderName.Substring(9, 2)}:{folderName.Substring(11, 2)}:{folderName.Substring(13, 2)}"
+                    : folderName;
+                lst.Items.Add(display);
+            }
+
+            lst.SelectedIndex = lst.Items.Count - 1;
+
+            Button btnOk = new Button();
+            btnOk.Text = "복원";
+            btnOk.Dock = DockStyle.Bottom;
+            btnOk.Height = 50;
+            btnOk.DialogResult = DialogResult.OK;
+
+            selectForm.Controls.Add(lst);
+            selectForm.Controls.Add(btnOk);
+            selectForm.AcceptButton = btnOk;
+
+            if (selectForm.ShowDialog() != DialogResult.OK)
+                return;
+
+            if (lst.SelectedIndex < 0)
+                return;
+
+            string selectedPath = backupFolderPaths[lst.SelectedIndex];
+
+            if (!Directory.Exists(selectedPath))
+            {
+                MessageBox.Show("선택한 백업 폴더가 존재하지 않습니다.");
+                return;
+            }
+
+            try
+            {
+                string catalogBackupDir = Path.Combine(selectedPath, "catalog");
+                if (Directory.Exists(catalogBackupDir))
+                {
+                    foreach (string file in Directory.GetFiles(catalogBackupDir))
+                    {
+                        string dest = Path.Combine(dataFolderPath, Path.GetFileName(file));
+                        File.Copy(file, dest, true);
+                    }
+                }
+
+                string imgBackupDir = Path.Combine(selectedPath, "images");
+                if (Directory.Exists(imgBackupDir))
+                {
+                    foreach (string file in Directory.GetFiles(imgBackupDir))
+                    {
+                        string dest = Path.Combine(imagesFolderPath, Path.GetFileName(file));
+                        File.Copy(file, dest, true);
+                    }
+                }
+
+                backupFolderPaths.Clear();
+                LoadCatalog();
+
+                AppendLog("되돌리기 완료");
+                MessageBox.Show("이전 상태로 복원되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("되돌리기 실패\n\n" + ex.Message);
+            }
+        }
+
+
 
         private void BindFrameLists()
         {
