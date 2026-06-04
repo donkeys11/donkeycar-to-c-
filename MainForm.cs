@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Newtonsoft.Json.Linq;
 
 namespace DonkeycarManager
 {
@@ -475,12 +476,63 @@ namespace DonkeycarManager
                 );
                 return;
             }
-
+            foreach (string catalog in catalogFiles)
+            {
+                CleanMismatch(dataFolderPath, catalog);
+            }
             catalogFilePath = catalogFiles[0];
             txtMycarPath.Text = "~/mycar";
             txtDataPath.Text = dataFolderPath;
 
             LoadCatalog();
+        }
+        private void CleanMismatch(string selectedPath, string catalogPath)
+        {
+            List<string> deletedImages = new();
+            List<string> deletedCatalogs = new();
+            string imageFolder = Path.Combine(selectedPath, "images");
+
+            var imageFiles = Directory.GetFiles(imageFolder, "*.jpg")
+                                      .Select(Path.GetFileName)
+                                      .ToHashSet();
+
+            List<string> catalogLines = File.ReadAllLines(catalogPath).ToList();
+
+            List<string> validCatalog = new();
+            HashSet<string> catalogImages = new();
+
+            foreach (string line in catalogLines)
+            {
+                JObject obj = JObject.Parse(line);
+
+                string imgName = obj["cam/image_array"]?.ToString() ?? "";
+
+                catalogImages.Add(imgName);
+
+                if (imageFiles.Contains(imgName))
+                    validCatalog.Add(line);
+            }
+
+            foreach (string img in imageFiles)
+            {
+                if (!catalogImages.Contains(img))
+                {
+                    string deletePath = Path.Combine(imageFolder, img);
+
+                    if (File.Exists(deletePath))
+                        File.Delete(deletePath);
+                }
+            }
+
+            File.WriteAllLines(catalogPath, validCatalog);
+            if (deletedImages.Count > 0 || deletedCatalogs.Count > 0)
+            {
+                MessageBox.Show(
+                    $"미스매칭 정리 완료\n\n" +
+                    $"삭제된 이미지: {deletedImages.Count}개\n" +
+                    $"삭제된 Catalog 항목: {deletedCatalogs.Count}개"
+                );
+            }
         }
 
         private void btnReload_Click(object? sender, EventArgs e)
