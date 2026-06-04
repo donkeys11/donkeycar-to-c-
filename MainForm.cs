@@ -595,7 +595,7 @@ namespace DonkeycarManager
             chkThrottlePositive.Checked = false;
             chkExcludeZeroAngle.Checked = false;
             chkStopDataOnly.Checked = false;
-
+            chkExcludeJitterAngle.Checked = false;
             visibleFrames = allFrames.ToList();
 
             BindFrameLists();
@@ -611,7 +611,7 @@ namespace DonkeycarManager
 
         private void btnDeleteFrame_Click(object? sender, EventArgs e)
         {
-            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
+            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked || chkExcludeJitterAngle.Checked;
 
             // 1. 필터가 켜져 있어서, 화면에 안 보이고 '걸러진 쓰레기 데이터'가 존재하는 경우의 자동 삭제
             if (hasFilter && visibleFrames.Count < allFrames.Count)
@@ -2172,14 +2172,14 @@ namespace DonkeycarManager
         {
             visibleFrames = allFrames.ToList();
 
-            
+
 
             isUpdatingSelection = true;
             lstCleanerFrames.BeginUpdate();
 
             lstCleanerFrames.SelectionMode = SelectionMode.MultiSimple;
             lstCleanerFrames.ClearSelected(); int count = 0;
-            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked;
+            bool hasFilter = chkThrottlePositive.Checked || chkExcludeZeroAngle.Checked || chkStopDataOnly.Checked || chkExcludeJitterAngle.Checked;
 
             if (hasFilter)
             {
@@ -2197,6 +2197,8 @@ namespace DonkeycarManager
                         isGood = false;
 
                     if (chkStopDataOnly.Checked && Math.Abs(f.Throttle) > 0.000001)
+                        isGood = false;
+                    if (chkExcludeJitterAngle.Checked && Math.Abs(f.Angle) <= 0.3)
                         isGood = false;
 
                     if (isGood)
@@ -2227,7 +2229,7 @@ namespace DonkeycarManager
                 AppendLog("필터 해제: 전체 데이터 표시");
         }
 
-    
+
 
 
         private void ClearViewer()
@@ -3280,6 +3282,6 @@ namespace DonkeycarManager
                 tabMain.SelectedIndex = index;
         }
 
-       
+        
     }
 }
