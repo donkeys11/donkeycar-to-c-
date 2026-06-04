@@ -87,7 +87,50 @@ namespace DonkeycarManager
             // 텍스트 없는 클리어 버튼
             btnClearDataPath.Text = "";
             btnClearDataPath.Paint += BtnClearDataPath_Paint;
+
+            btnPlayRange.Text = "";
+            btnPlayRange.Paint += BtnPlayRange_Paint;
         }
+
+        private void BtnPlayRange_Paint(object? sender, PaintEventArgs e)
+        {
+            Button btn = (Button)sender!;
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int size = Math.Min(btn.Width, btn.Height) - 10;
+            int cx = btn.Width / 2;
+            int cy = btn.Height / 2;
+
+            if (cleanerRangePlayTimer.Enabled)
+            {
+                // 일시정지 아이콘 (||)
+                int barW = size / 5;
+                int barH = size / 2;
+                int gap = size / 8;
+
+                using SolidBrush brush = new SolidBrush(Color.White);
+                g.FillRectangle(brush, cx - gap - barW, cy - barH / 2, barW, barH);
+                g.FillRectangle(brush, cx + gap, cy - barH / 2, barW, barH);
+            }
+            else
+            {
+                // 재생 아이콘 (▶)
+                int triSize = size / 2;
+                PointF[] triangle = new PointF[]
+                {
+            new PointF(cx - triSize / 2, cy - triSize / 2),
+            new PointF(cx - triSize / 2, cy + triSize / 2),
+            new PointF(cx + triSize / 2, cy)
+                };
+                using SolidBrush brush = new SolidBrush(Color.White);
+                g.FillPolygon(brush, triangle);
+            }
+        }
+
+
+
+
 
         private void BtnClearDataPath_Paint(object? sender, PaintEventArgs e)
         {
@@ -134,8 +177,17 @@ namespace DonkeycarManager
             string path = paths[0];
             if (Directory.Exists(path))
             {
+                imagesFolderPath = Path.Combine(path, "images");
+                if (!Directory.Exists(imagesFolderPath))
+                {
+                    MessageBox.Show(
+                        "선택한 폴더 안에 images 폴더가 없습니다.\n\n" +
+                        "mycar 폴더가 아니라 mycar/data 폴더를 선택해야 합니다."
+                    );
+                    imagesFolderPath = "";
+                    return;
+                }
                 dataFolderPath = path;
-                imagesFolderPath = Path.Combine(dataFolderPath, "images");
                 txtDataPath.Text = path;
                 LoadCatalog();
             }
@@ -175,7 +227,7 @@ namespace DonkeycarManager
             btnClearRange.Click += btnClearRange_Click;
 
             btnCleanerAutoPlay.Click += btnCleanerAutoPlay_Click;
-            btnCleanerStop.Click += btnCleanerStop_Click;
+           
 
             btnBrowseMycar.Click += btnBrowseMycar_Click;
             btnTrain.Click += btnTrain_Click;
@@ -205,6 +257,13 @@ namespace DonkeycarManager
             catalogFilePath = "";
             txtDataPath.Text = "폴더를 선택하거나 끌어오세요";
             txtDataPath.ForeColor = Color.DimGray;
+            allFrames.Clear();
+            visibleFrames.Clear();
+            ClearCleanerTimelineThumbnailCache();
+            cleanerTimelineStartIndex = 0;
+            ResetCleanerRange();
+            UpdateCleanerTimelineScrollBar();
+            pnlCleanerTimeline.Invalidate();
             ClearViewer();
             AppendLog("데이터 폴더 선택 해제");
         }
@@ -353,11 +412,7 @@ namespace DonkeycarManager
             AppendLog(cleanerAutoPlayTimer.Enabled ? "Cleaner 자동 재생 시작" : "Cleaner 자동 재생 일시정지");
         }
 
-        private void btnCleanerStop_Click(object? sender, EventArgs e)
-        {
-            StopCleanerAutoPlay();
-        }
-
+        
         private void CleanerAutoPlayTimer_Tick(object? sender, EventArgs e)
         {
             if (visibleFrames.Count == 0)
@@ -660,7 +715,8 @@ namespace DonkeycarManager
             if (cleanerRangePlayTimer.Enabled)
             {
                 cleanerRangePlayTimer.Stop();
-                btnPlayRange.Text = "구간 재생";
+                btnPlayRange.Text = "";
+                btnPlayRange.Invalidate();
                 return;
             }
 
@@ -668,7 +724,7 @@ namespace DonkeycarManager
             ShowFrame(cleanerRangePlayIndex);
 
             cleanerRangePlayTimer.Start();
-            btnPlayRange.Text = "재생 중지";
+            btnPlayRange.Invalidate();
 
             AppendLog($"구간 재생 시작: {start + 1} ~ {end + 1}");
         }
@@ -678,7 +734,8 @@ namespace DonkeycarManager
             if (!TryGetNormalizedCleanerRange(out int start, out int end))
             {
                 cleanerRangePlayTimer.Stop();
-                btnPlayRange.Text = "구간 재생";
+                btnPlayRange.Text = "";
+                btnPlayRange.Invalidate();
                 return;
             }
 
@@ -693,7 +750,7 @@ namespace DonkeycarManager
             if (cleanerRangePlayIndex > end)
             {
                 cleanerRangePlayTimer.Stop();
-                btnPlayRange.Text = "구간 재생";
+                btnPlayRange.Invalidate();
                 AppendLog("구간 재생 종료");
             }
         }
@@ -830,8 +887,10 @@ namespace DonkeycarManager
             cleanerRangePlayTimer.Stop();
 
             if (btnPlayRange != null)
-                btnPlayRange.Text = "구간 재생";
-
+            {
+                btnPlayRange.Text = "";
+                btnPlayRange.Invalidate();
+            }
             UpdateCleanerRangeUi();
 
             if (pnlCleanerTimeline != null)
@@ -1899,7 +1958,7 @@ namespace DonkeycarManager
         {
             visibleFrames = allFrames.ToList();
 
-            BindFrameLists();
+            
 
             isUpdatingSelection = true;
             lstCleanerFrames.BeginUpdate();
