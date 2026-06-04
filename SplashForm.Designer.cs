@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -67,9 +67,9 @@ namespace DonkeycarManager
                 g.DrawString("무엇을 할까요?", fLabel, bGray, new PointF(24, 90));
             };
 
-            btnCleaner = MakeBtn("adjust", "데이터 정리", "Cleaner 탭  ·  밝기·필터·삭제", C_GREEN, Color.FromArgb(210, 240, 220));
-            btnTraining = MakeBtn("brain", "학습 실행", "Training 탭  ·  모델 학습", C_AMBER, Color.FromArgb(255, 235, 210));
-            btnPilotTest = MakeBtn("wheel", "Pilot Test", "PilotTest 탭  ·  자율주행 테스트", C_RED, Color.FromArgb(255, 215, 215));
+            btnCleaner = MakeBtn("adjust", "데이터 정리", "밝기·필터·삭제", C_GREEN, Color.FromArgb(210, 240, 220));
+            btnTraining = MakeBtn("brain", "학습 실행", "모델 학습", C_AMBER, Color.FromArgb(255, 235, 210));
+            btnPilotTest = MakeBtn("wheel", "모델 테스트", "자율주행 테스트", C_RED, Color.FromArgb(255, 215, 215));
 
             btnCleaner.Click += btnCleaner_Click;
             btnTraining.Click += btnTraining_Click;

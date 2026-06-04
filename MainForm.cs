@@ -1,4 +1,4 @@
-﻿using System;
+﻿        using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -26,6 +26,9 @@ namespace DonkeycarManager
         private bool isUpdatingSelection = false;
 
         private Process? trainProcess;
+        private bool trainStopRequested = false;
+        private string currentTrainVersionModelPath = "";
+        private string currentTrainEpochText = "";
 
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerAutoPlayTimer = new System.Windows.Forms.Timer();
@@ -78,6 +81,8 @@ namespace DonkeycarManager
 
             picPilotTest.Paint += picPilotTest_Paint;
             picPilotTest.Resize += (s, e) => picPilotTest.Invalidate();
+            tabPilotTest.Resize += (s, e) => LayoutPilotTestControls();
+            LayoutPilotTestControls();
 
             // 폴더 아이콘
             btnOpenDataFolder.Text = "📁";
@@ -87,6 +92,53 @@ namespace DonkeycarManager
             // 텍스트 없는 클리어 버튼
             btnClearDataPath.Text = "";
             btnClearDataPath.Paint += BtnClearDataPath_Paint;
+        }
+
+        private void LayoutPilotTestControls()
+        {
+            if (tabPilotTest == null || picPilotTest == null || lstPilotFrames == null)
+                return;
+
+            int margin = 24;
+            int gap = 24;
+            int contentBottom = 24;
+
+            int tabWidth = Math.Max(tabPilotTest.ClientSize.Width, 900);
+            int tabHeight = Math.Max(tabPilotTest.ClientSize.Height, 480);
+            int topControlsBottom = new[]
+            {
+                txtModelPath.Bottom,
+                btnBrowseModel.Bottom,
+                cmbModelList.Bottom,
+                btnScanModels.Bottom,
+                btnRunPilotTest.Bottom,
+                btnUseViewerFrame.Bottom,
+                btnPilotAutoPlay.Bottom,
+            }.Max();
+
+            int contentTop = Math.Max(188, topControlsBottom + 24);
+            int contentWidth = Math.Max(720, tabWidth - margin * 2);
+            int contentHeight = Math.Max(260, tabHeight - contentTop - contentBottom);
+
+            int listWidth = Math.Max(240, Math.Min(340, (int)(contentWidth * 0.18)));
+            int statWidth = 230;
+            int listX = tabWidth - margin - listWidth;
+            int statX = listX - gap - statWidth;
+            int picX = margin;
+            int picWidth = Math.Max(500, statX - gap - picX);
+
+            picPilotTest.SetBounds(picX, contentTop, picWidth, contentHeight);
+
+            lblActualAngle.Location = new Point(statX, contentTop);
+            lblPredictedAngle.Location = new Point(statX, contentTop + 34);
+            lblActualThrottle.Location = new Point(statX, contentTop + 78);
+            lblPredictedThrottle.Location = new Point(statX, contentTop + 110);
+            lblAngleError.Location = new Point(statX, contentTop + 156);
+            lblPilotWarning.Location = new Point(statX, contentTop + 200);
+            lblPilotNote.SetBounds(statX, contentTop + 248, statWidth, Math.Max(96, contentHeight - 248));
+
+            lblPilotImageList.Location = new Point(listX, contentTop);
+            lstPilotFrames.SetBounds(listX, contentTop + 24, listWidth, Math.Max(180, contentHeight - 24));
         }
 
         private void BtnClearDataPath_Paint(object? sender, PaintEventArgs e)
@@ -175,7 +227,6 @@ namespace DonkeycarManager
             btnClearRange.Click += btnClearRange_Click;
 
             btnCleanerAutoPlay.Click += btnCleanerAutoPlay_Click;
-            btnCleanerStop.Click += btnCleanerStop_Click;
 
             btnBrowseMycar.Click += btnBrowseMycar_Click;
             btnTrain.Click += btnTrain_Click;
@@ -186,7 +237,6 @@ namespace DonkeycarManager
             btnUseViewerFrame.Click += btnUseViewerFrame_Click;
 
             btnPilotAutoPlay.Click += btnPilotAutoPlay_Click;
-            btnPilotStop.Click += btnPilotStop_Click;
 
             lstCleanerFrames.SelectedIndexChanged += lstCleanerFrames_SelectedIndexChanged;
             lstPilotFrames.SelectedIndexChanged += lstPilotFrames_SelectedIndexChanged;
@@ -342,27 +392,28 @@ namespace DonkeycarManager
                 return;
             }
 
-            pilotAutoPlayTimer.Stop();
+            if (IsAutoPlayRunning())
+            {
+                StopAllAutoPlay("자동 재생 멈춤");
+                return;
+            }
 
-            if (btnPilotAutoPlay != null)
-                btnPilotAutoPlay.Text = "자동 재생";
+            cleanerAutoPlayTimer.Start();
+            SyncAutoPlayButtons();
 
-            cleanerAutoPlayTimer.Enabled = !cleanerAutoPlayTimer.Enabled;
-            btnCleanerAutoPlay.Text = cleanerAutoPlayTimer.Enabled ? "재생 중" : "자동 재생";
-
-            AppendLog(cleanerAutoPlayTimer.Enabled ? "Cleaner 자동 재생 시작" : "Cleaner 자동 재생 일시정지");
+            AppendLog("자동 재생 시작");
         }
 
         private void btnCleanerStop_Click(object? sender, EventArgs e)
         {
-            StopCleanerAutoPlay();
+            StopAllAutoPlay("자동 재생 멈춤");
         }
 
         private void CleanerAutoPlayTimer_Tick(object? sender, EventArgs e)
         {
             if (visibleFrames.Count == 0)
             {
-                StopCleanerAutoPlay();
+                StopAllAutoPlay("자동 재생 멈춤");
                 return;
             }
 
@@ -376,12 +427,12 @@ namespace DonkeycarManager
 
         private void StopCleanerAutoPlay()
         {
+            bool wasRunning = cleanerAutoPlayTimer.Enabled;
             cleanerAutoPlayTimer.Stop();
+            SyncAutoPlayButtons();
 
-            if (btnCleanerAutoPlay != null)
-                btnCleanerAutoPlay.Text = "자동 재생";
-
-            AppendLog("Cleaner 자동 재생 멈춤");
+            if (wasRunning)
+                AppendLog("자동 재생 멈춤");
         }
 
         private void btnPilotAutoPlay_Click(object? sender, EventArgs e)
@@ -392,27 +443,28 @@ namespace DonkeycarManager
                 return;
             }
 
-            cleanerAutoPlayTimer.Stop();
+            if (IsAutoPlayRunning())
+            {
+                StopAllAutoPlay("자동 재생 멈춤");
+                return;
+            }
 
-            if (btnCleanerAutoPlay != null)
-                btnCleanerAutoPlay.Text = "자동 재생";
+            pilotAutoPlayTimer.Start();
+            SyncAutoPlayButtons();
 
-            pilotAutoPlayTimer.Enabled = !pilotAutoPlayTimer.Enabled;
-            btnPilotAutoPlay.Text = pilotAutoPlayTimer.Enabled ? "재생 중" : "자동 재생";
-
-            AppendLog(pilotAutoPlayTimer.Enabled ? "Pilot Test 자동 재생 시작" : "Pilot Test 자동 재생 일시정지");
+            AppendLog("자동 재생 시작");
         }
 
         private void btnPilotStop_Click(object? sender, EventArgs e)
         {
-            StopPilotAutoPlay();
+            StopAllAutoPlay("자동 재생 멈춤");
         }
 
         private void PilotAutoPlayTimer_Tick(object? sender, EventArgs e)
         {
             if (visibleFrames.Count == 0)
             {
-                StopPilotAutoPlay();
+                StopAllAutoPlay("자동 재생 멈춤");
                 return;
             }
 
@@ -426,12 +478,52 @@ namespace DonkeycarManager
 
         private void StopPilotAutoPlay()
         {
+            bool wasRunning = pilotAutoPlayTimer.Enabled;
             pilotAutoPlayTimer.Stop();
+            SyncAutoPlayButtons();
+
+            if (wasRunning)
+                AppendLog("자동 재생 멈춤");
+        }
+
+        private bool IsAutoPlayRunning()
+        {
+            return cleanerAutoPlayTimer.Enabled || pilotAutoPlayTimer.Enabled;
+        }
+
+        private void StopAllAutoPlay(string? logMessage = null)
+        {
+            bool wasRunning = IsAutoPlayRunning();
+
+            cleanerAutoPlayTimer.Stop();
+            pilotAutoPlayTimer.Stop();
+            SyncAutoPlayButtons();
+
+            if (wasRunning && !string.IsNullOrWhiteSpace(logMessage))
+                AppendLog(logMessage);
+        }
+
+        private void SyncAutoPlayButtons()
+        {
+            bool running = IsAutoPlayRunning();
+            string text = running ? "재생 중지" : "자동 재생";
+            Color backColor = running
+                ? Color.FromArgb(220, 80, 80)
+                : Color.FromArgb(76, 175, 80);
+
+            if (btnCleanerAutoPlay != null)
+            {
+                btnCleanerAutoPlay.Text = text;
+                btnCleanerAutoPlay.BackColor = backColor;
+                btnCleanerAutoPlay.ForeColor = Color.White;
+            }
 
             if (btnPilotAutoPlay != null)
-                btnPilotAutoPlay.Text = "자동 재생";
-
-            AppendLog("Pilot Test 자동 재생 멈춤");
+            {
+                btnPilotAutoPlay.Text = text;
+                btnPilotAutoPlay.BackColor = backColor;
+                btnPilotAutoPlay.ForeColor = Color.White;
+            }
         }
 
         private void btnApplyFilter_Click(object? sender, EventArgs e)
@@ -1179,18 +1271,49 @@ namespace DonkeycarManager
 
         private void btnBrowseMycar_Click(object? sender, EventArgs e)
         {
+            DialogResult modeResult = MessageBox.Show(
+                "WSL 기본 학습 폴더(~/mycar)를 사용하시겠습니까?\n\n" +
+                "예: ~/mycar를 바로 입력합니다.\n" +
+                "아니요: Windows 폴더 선택창에서 직접 선택합니다.",
+                "학습 폴더 선택",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question
+            );
+
+            if (modeResult == DialogResult.Cancel)
+                return;
+
+            if (modeResult == DialogResult.Yes)
+            {
+                txtMycarPath.Text = "~/mycar";
+                UpdateModelStatus();
+                AppendLog("학습 폴더 선택: WSL 기본 경로 ~/mycar");
+                return;
+            }
+
             using FolderBrowserDialog dlg = new FolderBrowserDialog();
-            dlg.Description = "mycar 폴더를 선택하세요.";
+            dlg.Description = "Windows에서 접근 가능한 mycar 폴더를 선택하세요. WSL을 쓰면 취소 후 ~/mycar를 사용하세요.";
+            dlg.ShowNewFolderButton = false;
+
+            if (!string.IsNullOrWhiteSpace(txtMycarPath.Text) && Directory.Exists(txtMycarPath.Text))
+                dlg.SelectedPath = txtMycarPath.Text;
 
             if (dlg.ShowDialog() == DialogResult.OK)
             {
                 txtMycarPath.Text = dlg.SelectedPath;
                 UpdateModelStatus();
+                AppendLog("학습 폴더 선택: " + dlg.SelectedPath);
             }
         }
 
         private async void btnTrain_Click(object? sender, EventArgs e)
         {
+            if (trainProcess != null && !trainProcess.HasExited)
+            {
+                MessageBox.Show("이미 학습이 진행 중입니다.");
+                return;
+            }
+
             string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             txtTrainArgs.Text = $"train.py --tub ./data --model ./models/mypilot_{timeStamp}.h5";
             txtModelPath.Text = $"~/mycar/models/mypilot_{timeStamp}.h5";
@@ -1218,8 +1341,9 @@ namespace DonkeycarManager
             }
 
             bool useWsl = IsWslMode(pythonExe);
+            bool hasSelectedDataFolder = !string.IsNullOrWhiteSpace(dataFolderPath) && Directory.Exists(dataFolderPath);
 
-            if (!string.IsNullOrWhiteSpace(dataFolderPath) && useWsl)
+            if (hasSelectedDataFolder && useWsl)
             {
                 string wslDataPath = ConvertPathToWslPath(dataFolderPath);
                 trainArgs = System.Text.RegularExpressions.Regex.Replace(
@@ -1229,13 +1353,10 @@ namespace DonkeycarManager
                 );
                 AppendLog($"[정보] --tub 경로 자동 변환: {wslDataPath}");
             }
-            else if (string.IsNullOrWhiteSpace(dataFolderPath))
+            else if (!hasSelectedDataFolder)
             {
-                AppendLog("[경고] 데이터 폴더가 선택되지 않았습니다.");
-                MessageBox.Show("Cleaner 탭에서 Donkeycar data 폴더를 먼저 열어주세요.");
-                return;
+                AppendLog("[정보] 선택된 데이터 폴더가 없어 학습 명령의 --tub 경로를 그대로 사용합니다.");
             }
-
             if (!useWsl && !Directory.Exists(mycarPath))
             {
                 MessageBox.Show(
@@ -1248,11 +1369,28 @@ namespace DonkeycarManager
             txtLog.Clear();
 
             await EnsurePredictOneScriptAsync();
-            ConvertCatalogToCsv(dataFolderPath);
+
+            if (hasSelectedDataFolder)
+                ConvertCatalogToCsv(dataFolderPath);
+
+            string versionModelPath = GetModelPathFromTrainArgs(trainArgs);
+
+            trainStopRequested = false;
+            currentTrainVersionModelPath = versionModelPath;
+            currentTrainEpochText = "";
+
+            ResetTrainingProgress("진행도: 준비 중");
+            btnTrain.Enabled = false;
+            btnStopTrain.Enabled = true;
+            btnStopTrain.Text = "학습 중지";
+            lblModelStatus.Text = "모델 상태: 학습 준비 중";
+
             AppendLog("학습 시작");
             AppendLog("실행 방식: " + (useWsl ? "WSL + Conda" : "Windows Python"));
             AppendLog("mycar 경로 = " + mycarPath);
             AppendLog("학습 인자 = " + trainArgs);
+            AppendLog("저장 모델 = " + versionModelPath);
+            AppendLog("대표 모델 = ./models/mypilot.h5");
 
             ProcessStartInfo psi;
 
@@ -1282,19 +1420,72 @@ namespace DonkeycarManager
                 trainProcess.Start();
                 trainProcess.BeginOutputReadLine();
                 trainProcess.BeginErrorReadLine();
+                SetTrainingProgress(0, "진행도: 학습 중");
+                lblModelStatus.Text = "모델 상태: 학습 중";
 
                 await Task.Run(() => trainProcess.WaitForExit());
 
-                AppendLog("학습 종료. ExitCode = " + trainProcess.ExitCode);
+                int exitCode = trainProcess.ExitCode;
+                bool stoppedByUser = trainStopRequested;
 
-                trainProcess.Dispose();
-                trainProcess = null;
+                AppendLog((stoppedByUser ? "학습 중지됨. ExitCode = " : "학습 종료. ExitCode = ") + exitCode);
 
-                UpdateModelStatus();
+                if (exitCode == 0 || stoppedByUser)
+                {
+                    try
+                    {
+                        bool modelExists = exitCode == 0
+                            || await TrainedModelExistsAsync(useWsl, mycarPath, versionModelPath);
+
+                        if (modelExists)
+                        {
+                            await PromoteTrainedModelAsync(useWsl, mycarPath, versionModelPath);
+                            txtModelPath.Text = useWsl
+                                ? "~/mycar/models/mypilot.h5"
+                                : Path.Combine(mycarPath, "models", "mypilot.h5");
+
+                            SetTrainingProgress(
+                                exitCode == 0 ? 100 : prgTrainProgress.Value,
+                                exitCode == 0
+                                    ? "진행도: 완료 - 대표 모델 적용 완료"
+                                    : "진행도: 중지됨 - 저장된 모델 적용 완료"
+                            );
+
+                            lblModelStatus.Text = "모델 상태: 대표 모델 갱신 완료";
+                        }
+                        else
+                        {
+                            AppendLog("[경고] 중지 시점까지 저장된 모델 파일이 없어 대표 모델을 갱신하지 않았습니다.");
+                            SetTrainingProgress(prgTrainProgress.Value, "진행도: 중지됨 - 저장된 모델 없음");
+                            lblModelStatus.Text = "모델 상태: 저장된 중간 모델 없음";
+                        }
+                    }
+                    catch (Exception promoteEx)
+                    {
+                        AppendLog("[경고] 대표 모델 갱신 실패: " + promoteEx.Message);
+                        MessageBox.Show(
+                            "저장된 모델 파일은 있지만 대표 모델(mypilot.h5) 갱신에 실패했습니다.\n\n" +
+                            "시점별 모델 파일은 그대로 남아 있습니다.\n\n" +
+                            promoteEx.Message
+                        );
+                        lblModelStatus.Text = "모델 상태: 대표 모델 갱신 실패";
+                    }
+                }
+                else
+                {
+                    AppendLog("[경고] 학습이 실패하여 대표 모델을 갱신하지 않았습니다.");
+                    SetTrainingProgress(prgTrainProgress.Value, "진행도: 실패");
+                    lblModelStatus.Text = "모델 상태: 학습 실패";
+                }
+
+                if (exitCode == 0)
+                    UpdateModelStatus();
             }
             catch (Exception ex)
             {
                 AppendLog("학습 실행 실패: " + ex.Message);
+                SetTrainingProgress(prgTrainProgress.Value, "진행도: 실행 실패");
+                lblModelStatus.Text = "모델 상태: 실행 실패";
                 MessageBox.Show(
                     "학습 실행에 실패했습니다.\n\n" +
                     "확인할 것:\n" +
@@ -1305,6 +1496,18 @@ namespace DonkeycarManager
                     "5. Ubuntu 터미널에서 직접 학습 명령이 되는지 확인\n\n" +
                     ex.Message
                 );
+            }
+            finally
+            {
+                trainProcess?.Dispose();
+                trainProcess = null;
+                trainStopRequested = false;
+                currentTrainVersionModelPath = "";
+                currentTrainEpochText = "";
+
+                btnTrain.Enabled = true;
+                btnStopTrain.Enabled = false;
+                btnStopTrain.Text = "학습 중지";
             }
         }
         private void ConvertCatalogToCsv(string dataPath)
@@ -1467,6 +1670,13 @@ namespace DonkeycarManager
             {
                 if (trainProcess != null && !trainProcess.HasExited)
                 {
+                    trainStopRequested = true;
+                    btnStopTrain.Enabled = false;
+                    btnStopTrain.Text = "중지 중...";
+                    lblModelStatus.Text = "모델 상태: 학습 중지 요청";
+                    AppendLog("학습 중지 요청: 저장된 중간 모델이 있으면 대표 모델로 적용합니다.");
+                    if (!string.IsNullOrWhiteSpace(currentTrainVersionModelPath))
+                        AppendLog("적용 대상 모델 = " + currentTrainVersionModelPath);
                     trainProcess.Kill(true);
                     AppendLog("학습 프로세스 중지 요청 완료");
                 }
@@ -2095,6 +2305,159 @@ namespace DonkeycarManager
             };
         }
 
+        private string GetModelPathFromTrainArgs(string trainArgs)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                trainArgs,
+                "(?:^|\\s)--model\\s+(?:(['\\\"])(?<quoted>.*?)\\1|(?<plain>\\S+))"
+            );
+
+            if (!match.Success)
+                return "./models/mypilot.h5";
+
+            string quoted = match.Groups["quoted"].Value;
+            string plain = match.Groups["plain"].Value;
+
+            return !string.IsNullOrWhiteSpace(quoted) ? quoted : plain;
+        }
+
+        private async Task<bool> TrainedModelExistsAsync(bool useWsl, string mycarPath, string versionModelPath)
+        {
+            if (!useWsl)
+                return File.Exists(ResolveLocalModelPath(mycarPath, versionModelPath));
+
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"version={BashQuote(versionModelPath)} && " +
+                "test -f \"$version\"";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+            await Task.Run(() => process.WaitForExit());
+
+            return process.ExitCode == 0;
+        }
+
+        private async Task PromoteTrainedModelAsync(bool useWsl, string mycarPath, string versionModelPath)
+        {
+            if (useWsl)
+            {
+                await PromoteTrainedModelInWslAsync(mycarPath, versionModelPath);
+                return;
+            }
+
+            PromoteTrainedModelLocally(mycarPath, versionModelPath);
+        }
+
+        private async Task PromoteTrainedModelInWslAsync(string mycarPath, string versionModelPath)
+        {
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                "mkdir -p ./models && " +
+                $"version={BashQuote(versionModelPath)} && " +
+                "cp -f \"$version\" ./models/mypilot.h5 && " +
+                "for ext in png tflite; do " +
+                "src=\"${version%.h5}.$ext\"; " +
+                "if [ -f \"$src\" ]; then cp -f \"$src\" \"./models/mypilot.$ext\"; fi; " +
+                "done";
+
+            AppendLog("대표 모델 갱신 명령 = " + command);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            string error = await process.StandardError.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            if (!string.IsNullOrWhiteSpace(output))
+                AppendLog(output.Trim());
+
+            if (process.ExitCode != 0)
+                throw new Exception(error.Trim());
+
+            AppendLog($"대표 모델 갱신 완료: {versionModelPath} -> ./models/mypilot.h5");
+        }
+
+        private void PromoteTrainedModelLocally(string mycarPath, string versionModelPath)
+        {
+            string sourceModelPath = ResolveLocalModelPath(mycarPath, versionModelPath);
+            string mainModelPath = Path.Combine(mycarPath, "models", "mypilot.h5");
+            string? mainModelDir = Path.GetDirectoryName(mainModelPath);
+
+            if (string.IsNullOrWhiteSpace(mainModelDir))
+                throw new Exception("대표 모델 저장 폴더를 확인할 수 없습니다.");
+
+            Directory.CreateDirectory(mainModelDir);
+
+            if (!File.Exists(sourceModelPath))
+                throw new FileNotFoundException("학습 결과 모델 파일을 찾을 수 없습니다.", sourceModelPath);
+
+            File.Copy(sourceModelPath, mainModelPath, true);
+            CopyOptionalModelCompanionFiles(sourceModelPath, mainModelPath);
+
+            AppendLog($"대표 모델 갱신 완료: {sourceModelPath} -> {mainModelPath}");
+        }
+
+        private string ResolveLocalModelPath(string mycarPath, string modelPath)
+        {
+            modelPath = modelPath.Trim().Trim('"');
+            modelPath = modelPath.Replace("/", "\\");
+
+            if (modelPath.StartsWith(".\\"))
+                modelPath = modelPath.Substring(2);
+
+            if (Path.IsPathRooted(modelPath))
+                return modelPath;
+
+            return Path.Combine(mycarPath, modelPath);
+        }
+
+        private void CopyOptionalModelCompanionFiles(string sourceModelPath, string mainModelPath)
+        {
+            string sourceBasePath = Path.Combine(
+                Path.GetDirectoryName(sourceModelPath) ?? "",
+                Path.GetFileNameWithoutExtension(sourceModelPath)
+            );
+
+            string mainBasePath = Path.Combine(
+                Path.GetDirectoryName(mainModelPath) ?? "",
+                Path.GetFileNameWithoutExtension(mainModelPath)
+            );
+
+            foreach (string extension in new[] { ".png", ".tflite" })
+            {
+                string sourcePath = sourceBasePath + extension;
+
+                if (File.Exists(sourcePath))
+                    File.Copy(sourcePath, mainBasePath + extension, true);
+            }
+        }
+
         private async Task<(double angle, double throttle)> RunPredictOneInWslAsync(string modelPath, string imagePath)
         {
             string wslModelPath = ConvertPathToWslPath(modelPath);
@@ -2297,7 +2660,100 @@ namespace DonkeycarManager
             if (txtLog == null)
                 return;
 
+            message = SanitizeLogMessage(message);
+
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            if (trainProcess != null)
+                UpdateTrainingProgressFromLog(message);
+
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+        }
+
+        private void ResetTrainingProgress(string text)
+        {
+            currentTrainEpochText = "";
+            SetTrainingProgress(0, text);
+        }
+
+        private void SetTrainingProgress(int percent, string text)
+        {
+            if (prgTrainProgress == null || lblTrainProgress == null)
+                return;
+
+            percent = Math.Max(0, Math.Min(100, percent));
+            prgTrainProgress.Value = percent;
+            lblTrainProgress.Text = text;
+        }
+
+        private void UpdateTrainingProgressFromLog(string message)
+        {
+            var epochMatch = System.Text.RegularExpressions.Regex.Match(
+                message,
+                @"(?:^|\s)Epoch\s+(?<current>\d+)\s*/\s*(?<total>\d+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+
+            if (epochMatch.Success)
+            {
+                currentTrainEpochText =
+                    $"Epoch {epochMatch.Groups["current"].Value}/{epochMatch.Groups["total"].Value}";
+            }
+
+            var stepMatch = System.Text.RegularExpressions.Regex.Match(
+                message,
+                @"(?:^|\s)(?<current>\d+)\s*/\s*(?<total>\d+)\s+\["
+            );
+
+            if (!stepMatch.Success)
+                return;
+
+            if (!int.TryParse(stepMatch.Groups["current"].Value, out int currentStep))
+                return;
+
+            if (!int.TryParse(stepMatch.Groups["total"].Value, out int totalSteps) || totalSteps <= 0)
+                return;
+
+            int percent = (int)Math.Round(currentStep * 100.0 / totalSteps);
+            string epochText = string.IsNullOrWhiteSpace(currentTrainEpochText)
+                ? ""
+                : currentTrainEpochText + " / ";
+
+            SetTrainingProgress(
+                percent,
+                $"진행도: {epochText}{currentStep}/{totalSteps} ({percent}%)"
+            );
+        }
+
+        private string SanitizeLogMessage(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return "";
+
+            message = System.Text.RegularExpressions.Regex.Replace(
+                message,
+                @"\x1B\[[0-?]*[ -/]*[@-~]",
+                ""
+            );
+
+            StringBuilder builder = new StringBuilder(message.Length);
+
+            foreach (char ch in message)
+            {
+                if (ch == '\b')
+                    continue;
+
+                if (ch == '\r')
+                    continue;
+
+                if (char.IsControl(ch) && ch != '\t')
+                    continue;
+
+                builder.Append(ch);
+            }
+
+            return builder.ToString().TrimEnd();
         }
 
         private void picPilotTest_Paint(object? sender, PaintEventArgs e)
