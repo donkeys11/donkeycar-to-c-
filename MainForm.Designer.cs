@@ -362,7 +362,7 @@ namespace DonkeycarManager
             lblTitleCleaner.AutoSize = true;
             lblTitleCleaner.Font = new Font("맑은 고딕", 22F, FontStyle.Bold);
             lblTitleCleaner.ForeColor = Color.FromArgb(180, 70, 70);
-            lblTitleCleaner.Location = new Point(7, 3);
+            lblTitleCleaner.Location = new Point(16, 11);
             lblTitleCleaner.Margin = new Padding(2, 0, 2, 0);
             lblTitleCleaner.Name = "lblTitleCleaner";
             lblTitleCleaner.Size = new Size(179, 41);
@@ -1002,6 +1002,7 @@ namespace DonkeycarManager
             // 
             // lblActualAngle
             // 
+            lblActualAngle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblActualAngle.AutoSize = true;
             lblActualAngle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             lblActualAngle.Location = new Point(563, 188);
@@ -1013,6 +1014,7 @@ namespace DonkeycarManager
             // 
             // lblPredictedAngle
             // 
+            lblPredictedAngle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblPredictedAngle.AutoSize = true;
             lblPredictedAngle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             lblPredictedAngle.Location = new Point(563, 222);
@@ -1024,6 +1026,7 @@ namespace DonkeycarManager
             // 
             // lblActualThrottle
             // 
+            lblActualThrottle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblActualThrottle.AutoSize = true;
             lblActualThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             lblActualThrottle.Location = new Point(563, 266);
@@ -1035,6 +1038,7 @@ namespace DonkeycarManager
             // 
             // lblPredictedThrottle
             // 
+            lblPredictedThrottle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblPredictedThrottle.AutoSize = true;
             lblPredictedThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             lblPredictedThrottle.Location = new Point(563, 298);
@@ -1046,6 +1050,7 @@ namespace DonkeycarManager
             // 
             // lblAngleError
             // 
+            lblAngleError.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblAngleError.AutoSize = true;
             lblAngleError.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             lblAngleError.Location = new Point(563, 344);
@@ -1057,6 +1062,7 @@ namespace DonkeycarManager
             // 
             // lblPilotWarning
             // 
+            lblPilotWarning.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblPilotWarning.AutoSize = true;
             lblPilotWarning.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             lblPilotWarning.ForeColor = Color.DimGray;
@@ -1069,6 +1075,7 @@ namespace DonkeycarManager
             // 
             // lblPilotNote
             // 
+            lblPilotNote.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblPilotNote.ForeColor = Color.DimGray;
             lblPilotNote.Location = new Point(563, 436);
             lblPilotNote.Margin = new Padding(2, 0, 2, 0);
