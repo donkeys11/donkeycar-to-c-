@@ -52,7 +52,7 @@ namespace DonkeycarManager
         private Button btnPlayRange;
         private Button btnClearRange;
         private Button btnCleanerAutoPlay;
-        private Button btnCleanerStop;
+        
 
         private Label lblTitleTrainer;
         private Label lblMycarPath;
@@ -142,7 +142,6 @@ namespace DonkeycarManager
             btnPlayRange = new Button();
             btnClearRange = new Button();
             btnCleanerAutoPlay = new Button();
-            btnCleanerStop = new Button();
             tabTrainer = new TabPage();
             lblTitleTrainer = new Label();
             lblMycarPath = new Label();
@@ -637,7 +636,6 @@ namespace DonkeycarManager
             btnPlayRange.Name = "btnPlayRange";
             btnPlayRange.Size = new Size(164, 53);
             btnPlayRange.TabIndex = 6;
-            btnPlayRange.Text = "구간 재생";
             btnPlayRange.UseVisualStyleBackColor = false;
             // 
             // btnClearRange
@@ -664,17 +662,6 @@ namespace DonkeycarManager
             btnCleanerAutoPlay.TabIndex = 8;
             btnCleanerAutoPlay.Text = "자동 재생";
             btnCleanerAutoPlay.UseVisualStyleBackColor = false;
-            // 
-            // btnCleanerStop
-            // 
-            btnCleanerStop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCleanerStop.Location = new Point(1824, 235);
-            btnCleanerStop.Margin = new Padding(4, 4, 4, 4);
-            btnCleanerStop.Name = "btnCleanerStop";
-            btnCleanerStop.Size = new Size(342, 53);
-            btnCleanerStop.TabIndex = 9;
-            btnCleanerStop.Text = "멈춤";
-            btnCleanerStop.UseVisualStyleBackColor = true;
             // 
             // tabTrainer
             // 
