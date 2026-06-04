@@ -510,13 +510,7 @@ namespace DonkeycarManager
                 catalogImages.Add(imgName);
 
                 if (imageFiles.Contains(imgName))
-                {
                     validCatalog.Add(line);
-                }
-                else
-                {
-                    deletedCatalogs.Add(imgName); // catalog에서 제거된 항목 기록
-                }
             }
 
             foreach (string img in imageFiles)
@@ -527,13 +521,10 @@ namespace DonkeycarManager
 
                     if (File.Exists(deletePath))
                         File.Delete(deletePath);
-                        deletedImages.Add(img);
                 }
             }
 
             File.WriteAllLines(catalogPath, validCatalog);
-       
-
             if (deletedImages.Count > 0 || deletedCatalogs.Count > 0)
             {
                 MessageBox.Show(
