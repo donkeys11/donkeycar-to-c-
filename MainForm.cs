@@ -30,7 +30,12 @@ namespace DonkeycarManager
         private bool trainStopRequested = false;
         private string currentTrainVersionModelPath = "";
         private string currentTrainEpochText = "";
+        private bool isAutoRangeSelecting = false;
 
+        private bool waitingForRangeStart = true;
+
+        private int autoRangeStartIndex = -1;
+        private int autoRangeEndIndex = -1;
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerAutoPlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer pilotAutoPlayTimer = new System.Windows.Forms.Timer();
@@ -98,14 +103,14 @@ namespace DonkeycarManager
             btnPlayRange.Text = "";
             btnPlayRange.Paint += BtnPlayRange_Paint;
 
-           
+
             btnDeleteFrame.Paint += BtnDelete_Paint;
 
-            
+
             btnDeleteRange.Paint += BtnDelete_Paint;
 
 
-            
+
         }
 
         private void LayoutPilotTestControls()
@@ -195,7 +200,7 @@ namespace DonkeycarManager
             g.DrawLine(pen, cx + u, by + u / 2, cx + u, by + bh - u / 2);
         }
 
-        
+
 
 
         private void BtnPlayRange_Paint(object? sender, PaintEventArgs e)
@@ -565,9 +570,17 @@ namespace DonkeycarManager
             if (IsAutoPlayRunning())
             {
                 StopAllAutoPlay("자동 재생 멈춤");
+                isAutoRangeSelecting = false;
+                waitingForRangeStart = true;
+
                 return;
             }
+            isAutoRangeSelecting = true;
 
+            waitingForRangeStart = true;
+
+            autoRangeStartIndex = -1;
+            autoRangeEndIndex = -1;
             cleanerAutoPlayTimer.Start();
             SyncAutoPlayButtons();
 
@@ -577,6 +590,8 @@ namespace DonkeycarManager
         private void btnCleanerStop_Click(object? sender, EventArgs e)
         {
             StopAllAutoPlay("자동 재생 멈춤");
+            isAutoRangeSelecting = false;
+            waitingForRangeStart = true;
         }
 
         private void CleanerAutoPlayTimer_Tick(object? sender, EventArgs e)
@@ -994,14 +1009,19 @@ namespace DonkeycarManager
 
             int index = HitTestCleanerTimelineIndex(e.X);
 
-            if (index < 0)
+            if (cleanerRangeEndIndex != index)
+            {
+                cleanerRangeEndIndex = index;
+
+                ShowFrame(index);
+                UpdateCleanerRangeUi();
+                pnlCleanerTimeline.Invalidate();
+            }
+            if (isAutoRangeSelecting)
+            {
+                SetAutoRangePoint(index);
                 return;
-
-            cleanerRangeEndIndex = index;
-
-            ShowFrame(index);
-            UpdateCleanerRangeUi();
-            pnlCleanerTimeline.Invalidate();
+            }
         }
 
         private void pnlCleanerTimeline_MouseUp(object? sender, MouseEventArgs e)
@@ -3487,6 +3507,53 @@ namespace DonkeycarManager
                 tabMain.SelectedIndex = index;
         }
 
-        
+        private void btnCleanerMark_Click(object? sender, EventArgs e)
+        {
+            if (!isAutoRangeSelecting)
+            {
+                MessageBox.Show("자동 재생 중에만 사용할 수 있습니다.");
+                return;
+            }
+
+            SetAutoRangePoint(currentIndex);
+        }
+        private void SetAutoRangePoint(int index)
+        {
+            if (index < 0 || index >= visibleFrames.Count)
+                return;
+
+            if (waitingForRangeStart)
+            {
+                autoRangeStartIndex = index;
+
+                cleanerRangeStartIndex = index;
+                cleanerRangeEndIndex = index;
+
+                waitingForRangeStart = false;
+
+                AppendLog($"시작점 지정 : {index + 1}");
+            }
+            else
+            {
+                autoRangeEndIndex = index;
+
+                cleanerRangeStartIndex =
+                    Math.Min(autoRangeStartIndex, autoRangeEndIndex);
+
+                cleanerRangeEndIndex =
+                    Math.Max(autoRangeStartIndex, autoRangeEndIndex);
+
+                isAutoRangeSelecting = false;
+                waitingForRangeStart = true;
+
+                AppendLog(
+                    $"구간 선택 완료 : {cleanerRangeStartIndex + 1} ~ {cleanerRangeEndIndex + 1}"
+                );
+            }
+
+            UpdateCleanerRangeUi();
+
+            pnlCleanerTimeline.Invalidate();
+        }
     }
 }
