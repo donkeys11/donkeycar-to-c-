@@ -1,4 +1,5 @@
-﻿        using System;
+﻿using Newtonsoft.Json.Linq;
+        using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -9,7 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Newtonsoft.Json.Linq;
+using static ReaLTaiizor.Controls.ExtendedPanel;
 
 namespace DonkeycarManager
 {
@@ -22,6 +23,8 @@ namespace DonkeycarManager
 
         private List<DonkeyFrame> allFrames = new List<DonkeyFrame>();
         private List<DonkeyFrame> visibleFrames = new List<DonkeyFrame>();
+        private List<int> cleanerPlayFrames = new();
+        private int cleanerPlayIndex = 0;
 
         private int currentIndex = -1;
         private bool isUpdatingSelection = false;
@@ -56,8 +59,9 @@ namespace DonkeycarManager
         private double? overlayActualThrottle = null;
         private double? overlayPredictedThrottle = null;
 
-        private int cleanerRangeStartIndex = -1;
-        private int cleanerRangeEndIndex = -1;
+        private List<(int Start, int End)> cleanerRanges = new();
+
+        private int pendingRangeStart = -1;
         private int cleanerRangePlayIndex = -1;
         private bool isDraggingCleanerRange = false;
         private List<string> backupFolderPaths = new List<string>();
@@ -818,7 +822,7 @@ namespace DonkeycarManager
 
         private void btnDeleteRange_Click(object? sender, EventArgs e)
         {
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            if (cleanerRanges.Count == 0)
             {
                 MessageBox.Show("먼저 타임라인에서 삭제할 구간을 드래그해서 선택하세요.");
                 return;
@@ -826,18 +830,28 @@ namespace DonkeycarManager
 
             List<DonkeyFrame> framesToDelete = new List<DonkeyFrame>();
 
-            for (int i = start; i <= end; i++)
-                framesToDelete.Add(visibleFrames[i]);
+
+            foreach (var range in cleanerRanges)
+            {
+                int start = range.Start;
+                int end = range.End;
+
+                for (int i = start; i <= end; i++)
+                {
+                    if (i >= 0 && i < visibleFrames.Count)
+                        framesToDelete.Add(visibleFrames[i]);
+                }
+            }
 
             DialogResult result = MessageBox.Show(
-                $"선택 구간 {start + 1} ~ {end + 1}의 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
-                "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
-                "삭제 전 백업 폴더가 자동으로 생성됩니다.",
-                "구간 삭제 확인",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning
-            );
-
+                $"{cleanerRanges.Count}개 구간의\n" +
+                 $"총 {framesToDelete.Count}개 프레임을 삭제할까요?\n\n" +
+                  "이미지 파일과 catalog 데이터가 함께 삭제됩니다.\n" +
+                 "삭제 전 백업 폴더가 자동으로 생성됩니다.",
+                     "구간 삭제 확인",
+                 MessageBoxButtons.YesNo,
+                 MessageBoxIcon.Warning
+                );
             if (result != DialogResult.Yes)
                 return;
 
@@ -925,15 +939,16 @@ namespace DonkeycarManager
 
         private void btnPlayRange_Click(object? sender, EventArgs e)
         {
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            if (cleanerRanges.Count == 0)
             {
-                MessageBox.Show("먼저 타임라인에서 재생할 구간을 드래그해서 선택하세요.");
+                MessageBox.Show("먼저 타임라인에서 재생할 구간을 선택하세요.");
                 return;
             }
 
             StopCleanerAutoPlay();
             StopPilotAutoPlay();
 
+            // 이미 재생 중이면 중지
             if (cleanerRangePlayTimer.Enabled)
             {
                 cleanerRangePlayTimer.Stop();
@@ -942,18 +957,33 @@ namespace DonkeycarManager
                 return;
             }
 
-            cleanerRangePlayIndex = start;
+            // 🔥 구간 → 하나의 연속 리스트 생성
+            cleanerPlayFrames = cleanerRanges
+                .OrderBy(r => r.Start)
+                .SelectMany(r => Enumerable.Range(r.Start, r.End - r.Start + 1))
+                .ToList();
+
+            if (cleanerPlayFrames.Count == 0)
+                return;
+
+            cleanerPlayIndex = 0;
+
+            cleanerRangePlayIndex = cleanerPlayFrames[0];
+
             ShowFrame(cleanerRangePlayIndex);
 
             cleanerRangePlayTimer.Start();
+
             btnPlayRange.Invalidate();
 
-            AppendLog($"구간 재생 시작: {start + 1} ~ {end + 1}");
+            AppendLog(
+                $"구간 통합 재생 시작: {cleanerRanges.Count}개 구간 / {cleanerPlayFrames.Count}프레임"
+            );
         }
 
         private void CleanerRangePlayTimer_Tick(object? sender, EventArgs e)
         {
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            if (cleanerPlayFrames == null || cleanerPlayFrames.Count == 0)
             {
                 cleanerRangePlayTimer.Stop();
                 btnPlayRange.Text = "";
@@ -961,20 +991,21 @@ namespace DonkeycarManager
                 return;
             }
 
-            if (cleanerRangePlayIndex < start || cleanerRangePlayIndex > end)
-                cleanerRangePlayIndex = start;
+            cleanerPlayIndex++;
 
-            ShowFrame(cleanerRangePlayIndex);
-            pnlCleanerTimeline.Invalidate();
-
-            cleanerRangePlayIndex++;
-
-            if (cleanerRangePlayIndex > end)
+            if (cleanerPlayIndex >= cleanerPlayFrames.Count)
             {
                 cleanerRangePlayTimer.Stop();
                 btnPlayRange.Invalidate();
                 AppendLog("구간 재생 종료");
+                return;
             }
+
+            cleanerRangePlayIndex = cleanerPlayFrames[cleanerPlayIndex];
+
+            ShowFrame(cleanerRangePlayIndex);
+
+            pnlCleanerTimeline.Invalidate();
         }
 
         private void btnClearRange_Click(object? sender, EventArgs e)
@@ -993,12 +1024,21 @@ namespace DonkeycarManager
             if (index < 0)
                 return;
 
-            cleanerRangeStartIndex = index;
-            cleanerRangeEndIndex = index;
+            ShowFrame(index);
+
+            // 🔥 자동 구간 모드 (버튼 기반)
+            if (isAutoRangeSelecting)
+            {
+                AddRangePoint(index);
+                return;
+            }
+
+            // 🔥 일반 드래그 모드
             isDraggingCleanerRange = true;
 
-            ShowFrame(index);
-            UpdateCleanerRangeUi();
+            // 시작점 초기화
+            pendingRangeStart = index;
+
             pnlCleanerTimeline.Invalidate();
         }
 
@@ -1009,33 +1049,28 @@ namespace DonkeycarManager
 
             int index = HitTestCleanerTimelineIndex(e.X);
 
-            if (cleanerRangeEndIndex != index)
-            {
-                cleanerRangeEndIndex = index;
-
-                ShowFrame(index);
-                UpdateCleanerRangeUi();
-                pnlCleanerTimeline.Invalidate();
-            }
-            if (isAutoRangeSelecting)
-            {
-                SetAutoRangePoint(index);
+            if (index < 0)
                 return;
-            }
+
+           
+
+            ShowFrame(index);
+
+            UpdateCleanerRangeUi();         
+            pnlCleanerTimeline.Invalidate();
         }
 
         private void pnlCleanerTimeline_MouseUp(object? sender, MouseEventArgs e)
         {
-            if (!isDraggingCleanerRange)
-                return;
+            if (isDraggingCleanerRange)
+            {
+                int index = HitTestCleanerTimelineIndex(e.X);
+
+                AddRangePoint(index);
+            }
 
             isDraggingCleanerRange = false;
-
-            NormalizeCleanerRange();
-            UpdateCleanerRangeUi();
-            pnlCleanerTimeline.Invalidate();
         }
-
         private void hsbCleanerTimeline_Scroll(object? sender, ScrollEventArgs e)
         {
             int maxStart = GetCleanerTimelineMaxStartIndex();
@@ -1075,41 +1110,46 @@ namespace DonkeycarManager
             return index;
         }
 
-        private bool TryGetNormalizedCleanerRange(out int start, out int end)
+        private bool TryGetNormalizedCleanerRanges(
+     out List<(int Start, int End)> ranges)
         {
-            start = -1;
-            end = -1;
-
-            if (cleanerRangeStartIndex < 0 || cleanerRangeEndIndex < 0)
-                return false;
+            ranges = new();
 
             if (visibleFrames.Count == 0)
                 return false;
 
-            start = Math.Min(cleanerRangeStartIndex, cleanerRangeEndIndex);
-            end = Math.Max(cleanerRangeStartIndex, cleanerRangeEndIndex);
+            foreach (var range in cleanerRanges)
+            {
+                int start =
+                    Math.Max(0,
+                    Math.Min(range.Start, visibleFrames.Count - 1));
 
-            start = Math.Max(0, Math.Min(start, visibleFrames.Count - 1));
-            end = Math.Max(0, Math.Min(end, visibleFrames.Count - 1));
+                int end =
+                    Math.Max(0,
+                    Math.Min(range.End, visibleFrames.Count - 1));
 
-            return start <= end;
+                if (start > end)
+                    continue;
+
+                ranges.Add((start, end));
+            }
+
+            return ranges.Count > 0;
         }
 
-        private void NormalizeCleanerRange()
-        {
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
-                return;
 
-            cleanerRangeStartIndex = start;
-            cleanerRangeEndIndex = end;
-        }
 
         private void ResetCleanerRange()
         {
-            cleanerRangeStartIndex = -1;
-            cleanerRangeEndIndex = -1;
+            cleanerRanges.Clear();
+
+            pendingRangeStart = -1;
+
             cleanerRangePlayIndex = -1;
+
             isDraggingCleanerRange = false;
+
+            isAutoRangeSelecting = false;
 
             cleanerRangePlayTimer.Stop();
 
@@ -1118,10 +1158,12 @@ namespace DonkeycarManager
                 btnPlayRange.Text = "";
                 btnPlayRange.Invalidate();
             }
+
             UpdateCleanerRangeUi();
 
-            if (pnlCleanerTimeline != null)
-                pnlCleanerTimeline.Invalidate();
+            pnlCleanerTimeline?.Invalidate();
+
+            AppendLog("모든 선택 구간 초기화");
         }
 
         private void UpdateCleanerRangeUi()
@@ -1129,16 +1171,31 @@ namespace DonkeycarManager
             if (lblCleanerRangeInfo == null)
                 return;
 
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            if (cleanerRanges.Count == 0)
             {
-                lblCleanerRangeInfo.Text = "선택 구간: 없음";
+                if (pendingRangeStart >= 0)
+                {
+                    lblCleanerRangeInfo.Text =
+                        $"시작 지정됨 : {pendingRangeStart + 1}번 (끝 선택 대기)";
+                }
+                else
+                {
+                    lblCleanerRangeInfo.Text = "선택 구간: 없음";
+                }
+
                 return;
             }
 
-            int count = end - start + 1;
+            int totalSelected = 0;
+
+            foreach (var range in cleanerRanges)
+            {
+                totalSelected +=
+                    (range.End - range.Start + 1);
+            }
 
             lblCleanerRangeInfo.Text =
-                $"선택 구간: {start + 1} ~ {end + 1} / {visibleFrames.Count}    선택: {count}개";
+                $"선택 구간: {cleanerRanges.Count}개 / 총 {totalSelected}장 선택";
         }
 
         private void pnlCleanerTimeline_Paint(object? sender, PaintEventArgs e)
@@ -1380,7 +1437,7 @@ namespace DonkeycarManager
 
         private void DrawCleanerSelectedRange(Graphics g, Rectangle trackRect)
         {
-            if (!TryGetNormalizedCleanerRange(out int start, out int end))
+            if (cleanerRanges.Count == 0)
                 return;
 
             if (visibleFrames.Count == 0)
@@ -1388,31 +1445,41 @@ namespace DonkeycarManager
 
             int visibleSlotCount = GetCleanerTimelineVisibleSlotCount();
             int viewStart = cleanerTimelineStartIndex;
-            int viewEnd = Math.Min(visibleFrames.Count - 1, cleanerTimelineStartIndex + visibleSlotCount - 1);
-
-            if (end < viewStart || start > viewEnd)
-                return;
-
-            int drawStart = Math.Max(start, viewStart);
-            int drawEnd = Math.Min(end, viewEnd);
-
-            Rectangle startRect = GetCleanerFrameSlotRectangle(drawStart, trackRect);
-            Rectangle endRect = GetCleanerFrameSlotRectangle(drawEnd, trackRect);
-
-            int x = startRect.Left;
-            int right = endRect.Right;
-            int width = Math.Max(4, right - x);
+            int viewEnd = Math.Min(visibleFrames.Count - 1, viewStart + visibleSlotCount - 1);
 
             using SolidBrush rangeBrush = new SolidBrush(Color.FromArgb(105, 255, 190, 40));
-            using Pen rangePen = new Pen(Color.FromArgb(255, 190, 40), 3);
+            using Pen rangePen = new Pen(Color.FromArgb(255, 190, 40), 2);
+            using Pen handlePen = new Pen(Color.FromArgb(255, 230, 80), 3);
 
-            g.FillRectangle(rangeBrush, x, trackRect.Top, width, trackRect.Height);
-            g.DrawRectangle(rangePen, x, trackRect.Top, width, trackRect.Height);
+            foreach (var range in cleanerRanges)
+            {
+                int start = range.Start;
+                int end = range.End;
 
-            using Pen handlePen = new Pen(Color.FromArgb(255, 230, 80), 4);
-            g.DrawLine(handlePen, x, trackRect.Top - 4, x, trackRect.Bottom + 4);
-            g.DrawLine(handlePen, x + width, trackRect.Top - 4, x + width, trackRect.Bottom + 4);
+                if (end < viewStart || start > viewEnd)
+                    continue;
+
+                int drawStart = Math.Max(start, viewStart);
+                int drawEnd = Math.Min(end, viewEnd);
+
+                Rectangle startRect = GetCleanerFrameSlotRectangle(drawStart, trackRect);
+                Rectangle endRect = GetCleanerFrameSlotRectangle(drawEnd, trackRect);
+
+                int x = startRect.Left;
+                int right = endRect.Right;
+                int width = Math.Max(4, right - x);
+
+                Rectangle fillRect = new Rectangle(x, trackRect.Top, width, trackRect.Height);
+
+                g.FillRectangle(rangeBrush, fillRect);
+                g.DrawRectangle(rangePen, fillRect);
+
+                g.DrawLine(handlePen, x, trackRect.Top - 4, x, trackRect.Bottom + 4);
+                g.DrawLine(handlePen, right, trackRect.Top - 4, right, trackRect.Bottom + 4);
+            }
         }
+        
+        
 
         private void DrawCleanerCurrentFrameMarker(Graphics g, Rectangle trackRect)
         {
@@ -3515,41 +3582,36 @@ namespace DonkeycarManager
                 return;
             }
 
-            SetAutoRangePoint(currentIndex);
+            AddRangePoint(currentIndex);
         }
-        private void SetAutoRangePoint(int index)
+        private void AddRangePoint(int index)
         {
             if (index < 0 || index >= visibleFrames.Count)
                 return;
 
-            if (waitingForRangeStart)
+            // 첫 번째 클릭(또는 버튼)
+            if (pendingRangeStart < 0)
             {
-                autoRangeStartIndex = index;
+                pendingRangeStart = index;
 
-                cleanerRangeStartIndex = index;
-                cleanerRangeEndIndex = index;
+                AppendLog($"구간 시작 지정 : {index + 1}");
 
-                waitingForRangeStart = false;
+                pnlCleanerTimeline.Invalidate();
 
-                AppendLog($"시작점 지정 : {index + 1}");
+                return;
             }
-            else
-            {
-                autoRangeEndIndex = index;
 
-                cleanerRangeStartIndex =
-                    Math.Min(autoRangeStartIndex, autoRangeEndIndex);
+            // 두 번째 클릭 -> 구간 생성
+            int start = Math.Min(pendingRangeStart, index);
+            int end = Math.Max(pendingRangeStart, index);
 
-                cleanerRangeEndIndex =
-                    Math.Max(autoRangeStartIndex, autoRangeEndIndex);
+            cleanerRanges.Add((start, end));
 
-                isAutoRangeSelecting = false;
-                waitingForRangeStart = true;
+            AppendLog(
+                $"구간 추가 : {start + 1} ~ {end + 1}"
+            );
 
-                AppendLog(
-                    $"구간 선택 완료 : {cleanerRangeStartIndex + 1} ~ {cleanerRangeEndIndex + 1}"
-                );
-            }
+            pendingRangeStart = -1;
 
             UpdateCleanerRangeUi();
 
