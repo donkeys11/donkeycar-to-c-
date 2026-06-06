@@ -54,6 +54,7 @@ namespace DonkeycarManager
         private int cleanerRangeEndIndex = -1;
         private int cleanerRangePlayIndex = -1;
         private bool isDraggingCleanerRange = false;
+        private System.Windows.Forms.DataVisualization.Charting.Chart chartLoss;
 
         public MainForm()
         {
@@ -95,6 +96,35 @@ namespace DonkeycarManager
 
             btnPlayRange.Text = "";
             btnPlayRange.Paint += BtnPlayRange_Paint;
+
+            // -----------------------------------------------------------------
+            //  도구 상자 없이 코드로 직접 차트 컨트롤 동적 생성
+            // -----------------------------------------------------------------
+            chartLoss = new System.Windows.Forms.DataVisualization.Charting.Chart();
+            chartLoss.Size = new Size(450, 300);     // 차트 가로, 세로 크기 (원하는 대로 조절 가능)
+            chartLoss.Location = new Point(550, 200);  // 차트가 배치될 화면 좌표 (UI 빈 공간에 맞춰 조절)
+
+            // 차트 영역(도화지) 설정
+            var chartArea = new System.Windows.Forms.DataVisualization.Charting.ChartArea("MainArea");
+            chartLoss.ChartAreas.Add(chartArea);
+
+            // 1. 학습 손실률 선 (파란색 Line) 설정
+            var seriesLoss = new System.Windows.Forms.DataVisualization.Charting.Series("학습 손실률");
+            seriesLoss.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
+            seriesLoss.BorderWidth = 3;
+            seriesLoss.Color = Color.DeepSkyBlue;
+            chartLoss.Series.Add(seriesLoss);
+
+            // 2. 검증 손실률 선 (초록색 Line) 설정
+            var seriesValLoss = new System.Windows.Forms.DataVisualization.Charting.Series("검증 손실률");
+            seriesValLoss.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
+            seriesValLoss.BorderWidth = 3;
+            seriesValLoss.Color = Color.LimeGreen;
+            chartLoss.Series.Add(seriesValLoss);
+
+            // 차트 컨트롤을 화면(Form)에 실제로 배치
+            tabTrainer.Controls.Add(chartLoss);
+            // -----------------------------------------------------------------
         }
 
         private void LayoutPilotTestControls()
@@ -1467,6 +1497,56 @@ namespace DonkeycarManager
                 trainProcess = new Process();
                 trainProcess.StartInfo = psi;
                 trainProcess.EnableRaisingEvents = true;
+
+                // 💡 [여기서부터 덮어쓰기 시작]
+                trainProcess = new Process();
+                trainProcess.StartInfo = psi;
+                trainProcess.EnableRaisingEvents = true;
+
+                // 💡 [여기서부터 덮어쓰기 시작]
+                trainProcess.OutputDataReceived += (s, ev) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(ev.Data))
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            AppendLog(ev.Data); // 기존 검은 로그창에 텍스트 출력
+
+                            // 🎯 [실시간 손실률 차트 매핑 핵심 로직]
+                            // 로그 문자열에 loss: 가 포함되어 있다면 파싱 엔진 가동!
+                            if (ev.Data.Contains("loss:"))
+                            {
+                                try
+                                {
+                                    // 정규식을 사용해 실시간 loss 및 val_loss 실수 데이터(숫자만) 추출
+                                    var matchLoss = System.Text.RegularExpressions.Regex.Match(ev.Data, @"loss:\s*([0-9.]+)");
+                                    var matchValLoss = System.Text.RegularExpressions.Regex.Match(ev.Data, @"val_loss:\s*([0-9.]+)");
+
+                                    // 1. 파란색 'Loss' 선에 실시간 포인트 누적
+                                    if (matchLoss.Success)
+                                    {
+                                        double lossVal = double.Parse(matchLoss.Groups[1].Value);
+                                        chartLoss.Series["학습 손실률"].Points.AddY(lossVal);
+                                    }
+
+                                    // 2. 초록색 'Val_Loss' 선에 실시간 포인트 누적
+                                    if (matchValLoss.Success)
+                                    {
+                                        double valLossVal = double.Parse(matchValLoss.Groups[1].Value);
+                                        chartLoss.Series["검증 손실률"].Points.AddY(valLossVal);
+                                    }
+                                }
+                                catch
+                                {
+                                    // 파싱이나 변환 중 간혹 꼬여도 프로그램이 절대 튕기지 않도록 완벽히 방어
+                                }
+                            }
+                        }));
+                    }
+                };
+             
+          
+           
 
                 trainProcess.OutputDataReceived += (s, ev) =>
                 {

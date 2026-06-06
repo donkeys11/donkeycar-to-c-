@@ -819,7 +819,7 @@ namespace DonkeycarManager
             prgTrainProgress.Location = new Point(116, 282);
             prgTrainProgress.Margin = new Padding(2);
             prgTrainProgress.Name = "prgTrainProgress";
-            prgTrainProgress.Size = new Size(646, 20);
+            prgTrainProgress.Size = new Size(407, 20);
             prgTrainProgress.Style = ProgressBarStyle.Continuous;
             prgTrainProgress.TabIndex = 11;
             // 
