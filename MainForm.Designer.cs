@@ -598,6 +598,7 @@ namespace DonkeycarManager
                 "C#은 AI를 직접 학습하지 않고 Python 외부 프로세스를 실행합니다.";
 
             tabTrainer.Controls.Add(lblTitleTrainer);
+            tabTrainer.Controls.Add(txtLog);
             tabTrainer.Controls.Add(lblMycarPath);
             tabTrainer.Controls.Add(txtMycarPath);
             tabTrainer.Controls.Add(btnBrowseMycar);
@@ -763,7 +764,12 @@ namespace DonkeycarManager
 
             txtLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             txtLog.Font = new Font("Consolas", 9F);
+<<<<<<< Updated upstream
             txtLog.Location = new Point(0, 725);
+=======
+            txtLog.Location = new Point(-4, 418);
+            txtLog.Margin = new Padding(2);
+>>>>>>> Stashed changes
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
@@ -771,15 +777,28 @@ namespace DonkeycarManager
             txtLog.Size = new Size(1400, 175);
 
             Controls.Add(tabMain);
+<<<<<<< Updated upstream
             Controls.Add(txtLog);
 
             ((System.ComponentModel.ISupportInitialize)picFrame).EndInit();
+=======
+            Margin = new Padding(2);
+            MinimumSize = new Size(962, 487);
+            Name = "MainForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "Donkeycar Manager";
+            WindowState = FormWindowState.Maximized;
+            ((System.ComponentModel.ISupportInitialize)trbBrightness).EndInit();
+            ((System.ComponentModel.ISupportInitialize)trbContrast).EndInit();
+            tabMain.ResumeLayout(false);
+            tabCleaner.ResumeLayout(false);
+            tabCleaner.PerformLayout();
+>>>>>>> Stashed changes
             ((System.ComponentModel.ISupportInitialize)picCleanerPreview).EndInit();
             ((System.ComponentModel.ISupportInitialize)picPilotTest).EndInit();
             ((System.ComponentModel.ISupportInitialize)trbFrame).EndInit();
 
             ResumeLayout(false);
-            PerformLayout();
         }
     }
 }

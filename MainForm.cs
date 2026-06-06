@@ -26,6 +26,16 @@ namespace DonkeycarManager
         private bool isUpdatingSelection = false;
 
         private Process? trainProcess;
+<<<<<<< Updated upstream
+=======
+        private bool trainStopRequested = false;
+        private string currentTrainMainModelPath = MainModelRelativePath;
+        private string currentTrainSnapshotModelPath = "";
+        private string currentTrainMycarPath = "";
+        private bool currentTrainUseWsl = false;
+        private string currentTrainEpochText = "";
+        private bool isAutoRangeSelecting = false;
+>>>>>>> Stashed changes
 
         private readonly System.Windows.Forms.Timer autoPlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
@@ -37,6 +47,8 @@ namespace DonkeycarManager
         private const string WslDistroName = "Ubuntu-22.04";
         private const string CondaEnvName = "e2e_env";
         private const int CatalogChunkSize = 1000;
+        private const string MainModelRelativePath = "./models/mypilot.h5";
+        private const string TrainPidFileRelativePath = "./models/.donkeycar_manager_train.pid";
 
         private const int CleanerTimelineThumbWidth = 82;
         private const int CleanerTimelineThumbGap = 4;
@@ -1018,6 +1030,20 @@ namespace DonkeycarManager
 
         private async void btnTrain_Click(object? sender, EventArgs e)
         {
+<<<<<<< Updated upstream
+=======
+            if (trainProcess != null && !trainProcess.HasExited)
+            {
+                MessageBox.Show("이미 학습이 진행 중입니다.");
+                return;
+            }
+
+            string timeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string snapshotModelPath = $"./models/mypilot_{timeStamp}.h5";
+            txtTrainArgs.Text = $"train.py --tub ./data --model {MainModelRelativePath}";
+            txtModelPath.Text = "~/mycar/models/mypilot.h5";
+
+>>>>>>> Stashed changes
             string mycarPath = txtMycarPath.Text.Trim();
             string pythonExe = txtPythonExe.Text.Trim();
             string trainArgs = txtTrainArgs.Text.Trim();
@@ -1042,6 +1068,21 @@ namespace DonkeycarManager
 
             bool useWsl = IsWslMode(pythonExe);
 
+<<<<<<< Updated upstream
+=======
+            trainArgs = ReplaceOrAppendTrainArg(trainArgs, "--model", MainModelRelativePath);
+
+            if (hasSelectedDataFolder && useWsl)
+            {
+                string wslDataPath = ConvertPathToWslPath(dataFolderPath);
+                trainArgs = ReplaceOrAppendTrainArg(trainArgs, "--tub", wslDataPath);
+                AppendLog($"[정보] --tub 경로 자동 변환: {wslDataPath}");
+            }
+            else if (!hasSelectedDataFolder)
+            {
+                AppendLog("[정보] 선택된 데이터 폴더가 없어 학습 명령의 --tub 경로를 그대로 사용합니다.");
+            }
+>>>>>>> Stashed changes
             if (!useWsl && !Directory.Exists(mycarPath))
             {
                 MessageBox.Show(
@@ -1053,10 +1094,53 @@ namespace DonkeycarManager
 
             txtLog.Clear();
 
+<<<<<<< Updated upstream
+=======
+            await EnsurePredictOneScriptAsync();
+
+            if (hasSelectedDataFolder)
+                ConvertCatalogToCsv(dataFolderPath);
+
+            bool existingMainModel = await TrainedModelExistsAsync(useWsl, mycarPath, MainModelRelativePath);
+            DateTime? mainModelWriteTimeBefore = await GetTrainedModelLastWriteTimeUtcAsync(useWsl, mycarPath, MainModelRelativePath);
+
+            if (existingMainModel)
+            {
+                trainArgs = ReplaceOrAppendTrainArg(trainArgs, "--transfer", MainModelRelativePath);
+                AppendLog($"[정보] 기존 대표 모델 이어 학습 사용: {MainModelRelativePath}");
+            }
+            else
+            {
+                AppendLog("[정보] 기존 대표 모델이 없어 새 대표 모델로 학습을 시작합니다.");
+            }
+
+            txtTrainArgs.Text = trainArgs;
+
+            string mainModelPath = GetModelPathFromTrainArgs(trainArgs);
+
+            trainStopRequested = false;
+            currentTrainMainModelPath = mainModelPath;
+            currentTrainSnapshotModelPath = snapshotModelPath;
+            currentTrainMycarPath = mycarPath;
+            currentTrainUseWsl = useWsl;
+            currentTrainEpochText = "";
+
+            ResetTrainingProgress("진행도: 준비 중");
+            btnTrain.Enabled = false;
+            btnStopTrain.Enabled = true;
+            btnStopTrain.Text = "학습 중지";
+            lblModelStatus.Text = "모델 상태: 학습 준비 중";
+
+>>>>>>> Stashed changes
             AppendLog("학습 시작");
             AppendLog("실행 방식: " + (useWsl ? "WSL + Conda" : "Windows Python"));
             AppendLog("mycar 경로 = " + mycarPath);
             AppendLog("학습 인자 = " + trainArgs);
+<<<<<<< Updated upstream
+=======
+            AppendLog("대표 모델 = " + mainModelPath);
+            AppendLog("학습 스냅샷 = " + snapshotModelPath);
+>>>>>>> Stashed changes
 
             ProcessStartInfo psi;
 
@@ -1104,7 +1188,69 @@ namespace DonkeycarManager
                 trainProcess.Dispose();
                 trainProcess = null;
 
+<<<<<<< Updated upstream
                 UpdateModelStatus();
+=======
+                if (exitCode == 0 || stoppedByUser)
+                {
+                    try
+                    {
+                        bool modelExists = await TrainedModelExistsAsync(useWsl, mycarPath, mainModelPath);
+                        DateTime? mainModelWriteTimeAfter = await GetTrainedModelLastWriteTimeUtcAsync(useWsl, mycarPath, mainModelPath);
+                        bool modelUpdatedDuringRun = HasModelWriteTimeChanged(mainModelWriteTimeBefore, mainModelWriteTimeAfter);
+                        bool canSnapshot = modelExists && (exitCode == 0 || modelUpdatedDuringRun);
+
+                        if (canSnapshot)
+                        {
+                            await SaveTrainingSnapshotAsync(useWsl, mycarPath, mainModelPath, snapshotModelPath);
+                            txtModelPath.Text = useWsl
+                                ? "~/mycar/models/mypilot.h5"
+                                : Path.Combine(mycarPath, "models", "mypilot.h5");
+
+                            SetTrainingProgress(
+                                exitCode == 0 ? 100 : prgTrainProgress.Value,
+                                exitCode == 0
+                                    ? "진행도: 완료 - 대표 모델 및 스냅샷 저장 완료"
+                                    : "진행도: 중지됨 - 최신 체크포인트 반영 완료"
+                            );
+
+                            lblModelStatus.Text = exitCode == 0
+                                ? "모델 상태: 대표 모델 갱신 및 스냅샷 저장 완료"
+                                : "모델 상태: 중지 시점 체크포인트 반영 완료";
+                        }
+                        else if (modelExists && stoppedByUser)
+                        {
+                            AppendLog("[경고] 중지 전까지 새 체크포인트가 저장되지 않아 기존 대표 모델을 유지합니다.");
+                            SetTrainingProgress(prgTrainProgress.Value, "진행도: 중지됨 - 새 체크포인트 없음");
+                            lblModelStatus.Text = "모델 상태: 기존 대표 모델 유지";
+                        }
+                        else
+                        {
+                            AppendLog("[경고] 저장된 대표 모델 파일을 찾지 못했습니다.");
+                            SetTrainingProgress(prgTrainProgress.Value, "진행도: 중지됨 - 저장된 모델 없음");
+                            lblModelStatus.Text = "모델 상태: 저장된 중간 모델 없음";
+                        }
+                    }
+                    catch (Exception snapshotEx)
+                    {
+                        AppendLog("[경고] 학습 스냅샷 저장 실패: " + snapshotEx.Message);
+                        MessageBox.Show(
+                            "대표 모델(mypilot.h5)은 저장되었지만 시점별 스냅샷 저장에 실패했습니다.\n\n" +
+                            snapshotEx.Message
+                        );
+                        lblModelStatus.Text = "모델 상태: 스냅샷 저장 실패";
+                    }
+                }
+                else
+                {
+                    AppendLog("[경고] 학습이 실패하여 대표 모델을 갱신하지 않았습니다.");
+                    SetTrainingProgress(prgTrainProgress.Value, "진행도: 실패");
+                    lblModelStatus.Text = "모델 상태: 학습 실패";
+                }
+
+                if (exitCode == 0)
+                    UpdateModelStatus();
+>>>>>>> Stashed changes
             }
             catch (Exception ex)
             {
@@ -1121,21 +1267,269 @@ namespace DonkeycarManager
                     ex.Message
                 );
             }
+<<<<<<< Updated upstream
+=======
+            finally
+            {
+                trainProcess?.Dispose();
+                trainProcess = null;
+                trainStopRequested = false;
+                currentTrainMainModelPath = MainModelRelativePath;
+                currentTrainSnapshotModelPath = "";
+                currentTrainMycarPath = "";
+                currentTrainUseWsl = false;
+                currentTrainEpochText = "";
+
+                btnTrain.Enabled = true;
+                btnStopTrain.Enabled = false;
+                btnStopTrain.Text = "학습 중지";
+            }
+        }
+        private void ConvertCatalogToCsv(string dataPath)
+        {
+            try
+            {
+                var catalogFiles = Directory.GetFiles(
+                    dataPath,
+                    "catalog_*.catalog",
+                    SearchOption.TopDirectoryOnly
+                );
+
+                if (catalogFiles.Length == 0)
+                {
+                    AppendLog("[경고] catalog 파일 없음");
+                    return;
+                }
+
+                string csvPath = Path.Combine(dataPath, "training_data.csv");
+
+                using StreamWriter writer = new StreamWriter(
+                    csvPath,
+                    false,
+                    Encoding.UTF8
+                );
+
+                // 헤더
+                writer.WriteLine("image_path,angle,throttle");
+
+                foreach (var file in catalogFiles)
+                {
+                    foreach (string line in File.ReadLines(file))
+                    {
+                        if (string.IsNullOrWhiteSpace(line))
+                            continue;
+
+                        try
+                        {
+                            using JsonDocument doc =
+                                JsonDocument.Parse(line);
+
+                            var root = doc.RootElement;
+
+                            string img =
+                                root.GetProperty("cam/image_array").GetString()
+                                ?? "";
+
+                            float angle =
+                                root.GetProperty("user/angle").GetSingle();
+
+                            float throttle =
+                                root.GetProperty("user/throttle").GetSingle();
+
+                            writer.WriteLine(
+                                $"{img},{angle},{throttle}"
+                            );
+                        }
+                        catch
+                        {
+                            AppendLog("[경고] catalog 파싱 실패");
+                        }
+                    }
+                }
+
+                AppendLog($"CSV 저장 완료: {csvPath}");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("CSV 변환 실패: " + ex.Message);
+            }
         }
 
-        private void btnStopTrain_Click(object? sender, EventArgs e)
+        private async Task EnsurePredictOneScriptAsync()
+        {
+            string scriptContent =
+                "import os\n" +
+                "os.environ[\"TF_CPP_MIN_LOG_LEVEL\"] = \"2\"\n" +
+                "import argparse\n" +
+                "import json\n" +
+                "from pathlib import Path\n" +
+                "import numpy as np\n" +
+                "from PIL import Image\n" +
+                "from tensorflow.keras.models import load_model\n" +
+                "\n" +
+                "def prepare_image(image_path):\n" +
+                "    img = Image.open(image_path).convert(\"RGB\")\n" +
+                "    img = img.resize((160, 120))\n" +
+                "    arr = np.asarray(img, dtype=np.float32) / 255.0\n" +
+                "    arr = arr.reshape((1, 120, 160, 3))\n" +
+                "    return arr\n" +
+                "\n" +
+                "def parse_prediction(pred):\n" +
+                "    if isinstance(pred, list):\n" +
+                "        angle = float(np.squeeze(pred[0]))\n" +
+                "        if len(pred) > 1:\n" +
+                "            throttle = float(np.squeeze(pred[1]))\n" +
+                "        else:\n" +
+                "            throttle = 0.0\n" +
+                "        return angle, throttle\n" +
+                "    arr = np.asarray(pred).reshape(-1)\n" +
+                "    if arr.size >= 2:\n" +
+                "        return float(arr[0]), float(arr[1])\n" +
+                "    if arr.size == 1:\n" +
+                "        return float(arr[0]), 0.0\n" +
+                "    return 0.0, 0.0\n" +
+                "\n" +
+                "def main():\n" +
+                "    parser = argparse.ArgumentParser()\n" +
+                "    parser.add_argument(\"--model\", required=True)\n" +
+                "    parser.add_argument(\"--image\", required=True)\n" +
+                "    args = parser.parse_args()\n" +
+                "    model_path = Path(args.model).expanduser()\n" +
+                "    image_path = Path(args.image).expanduser()\n" +
+                "    if not model_path.exists():\n" +
+                "        print(json.dumps({\"ok\": False, \"error\": f\"Model file not found: {model_path}\"}))\n" +
+                "        return\n" +
+                "    if not image_path.exists():\n" +
+                "        print(json.dumps({\"ok\": False, \"error\": f\"Image file not found: {image_path}\"}))\n" +
+                "        return\n" +
+                "    model = load_model(model_path, compile=False)\n" +
+                "    x = prepare_image(image_path)\n" +
+                "    pred = model.predict(x, verbose=0)\n" +
+                "    angle, throttle = parse_prediction(pred)\n" +
+                "    print(json.dumps({\"ok\": True, \"angle\": angle, \"throttle\": throttle, \"model\": str(model_path), \"image\": str(image_path)}))\n" +
+                "\n" +
+                "if __name__ == \"__main__\":\n" +
+                "    main()\n";
+
+            string tempPath = Path.Combine(Path.GetTempPath(), "predict_one.py");
+            File.WriteAllText(tempPath, scriptContent, new System.Text.UTF8Encoding(false));
+
+            string wslTempPath = ConvertPathToWslPath(tempPath);
+            string command = $"cp {BashQuote(wslTempPath)} ~/mycar/predict_one.py";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            await Task.Run(() => process.WaitForExit());
+
+            if (process.ExitCode == 0)
+                AppendLog("[정보] predict_one.py 자동 생성 완료");
+            else
+                AppendLog("[경고] predict_one.py 자동 생성 실패 - 수동으로 넣어주세요");
+>>>>>>> Stashed changes
+        }
+
+        private async void btnStopTrain_Click(object? sender, EventArgs e)
         {
             try
             {
                 if (trainProcess != null && !trainProcess.HasExited)
                 {
+<<<<<<< Updated upstream
                     trainProcess.Kill(true);
                     AppendLog("학습 프로세스 중지 요청 완료");
+=======
+                    trainStopRequested = true;
+                    btnStopTrain.Enabled = false;
+                    btnStopTrain.Text = "중지 중...";
+                    lblModelStatus.Text = "모델 상태: 학습 중지 요청";
+                    AppendLog("학습 중지 요청: 마지막으로 저장된 체크포인트까지 대표 모델에 반영합니다.");
+                    AppendLog("대표 모델 = " + currentTrainMainModelPath);
+                    if (!string.IsNullOrWhiteSpace(currentTrainSnapshotModelPath))
+                        AppendLog("중지 후 스냅샷 대상 = " + currentTrainSnapshotModelPath);
+
+                    if (currentTrainUseWsl)
+                    {
+                        await RequestWslTrainInterruptAsync();
+                        await WaitForTrainProcessExitAsync(5000);
+                    }
+
+                    if (trainProcess != null && !trainProcess.HasExited)
+                    {
+                        trainProcess.Kill(true);
+                        AppendLog("학습 프로세스 강제 종료 요청 완료");
+                    }
+                    else
+                    {
+                        AppendLog("학습 프로세스 중지 신호 전송 완료");
+                    }
+>>>>>>> Stashed changes
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show("학습 중지 실패\n\n" + ex.Message);
+            }
+        }
+
+        private async Task RequestWslTrainInterruptAsync()
+        {
+            if (string.IsNullOrWhiteSpace(currentTrainMycarPath))
+                return;
+
+            string wslMycarPath = ConvertPathToWslPath(currentTrainMycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"pid_file={BashQuote(TrainPidFileRelativePath)} && " +
+                "if [ -f \"$pid_file\" ]; then " +
+                "pid=\"$(cat \"$pid_file\")\"; " +
+                "kill -INT \"$pid\" 2>/dev/null || true; " +
+                "fi";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string error = await process.StandardError.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
+                AppendLog("[경고] WSL 학습 중지 신호 실패: " + error.Trim());
+        }
+
+        private async Task WaitForTrainProcessExitAsync(int timeoutMilliseconds)
+        {
+            int elapsed = 0;
+            const int step = 100;
+
+            while (elapsed < timeoutMilliseconds)
+            {
+                if (trainProcess == null || trainProcess.HasExited)
+                    return;
+
+                await Task.Delay(step);
+                elapsed += step;
             }
         }
 
@@ -1719,7 +2113,18 @@ namespace DonkeycarManager
                 "source ~/miniconda3/etc/profile.d/conda.sh && " +
                 $"conda activate {CondaEnvName} && " +
                 $"cd {BashCdArgument(wslMycarPath)} && " +
-                $"python {trainArgs}";
+                "mkdir -p ./models && " +
+                "{ " +
+                $"pid_file={BashQuote(TrainPidFileRelativePath)}; " +
+                "rm -f \"$pid_file\"; " +
+                $"python {trainArgs} & " +
+                "train_pid=$!; " +
+                "echo \"$train_pid\" > \"$pid_file\"; " +
+                "wait \"$train_pid\"; " +
+                "exit_code=$?; " +
+                "rm -f \"$pid_file\"; " +
+                "exit \"$exit_code\"; " +
+                "}";
 
             AppendLog("WSL Train Command = " + command);
 
@@ -1734,6 +2139,316 @@ namespace DonkeycarManager
             };
         }
 
+<<<<<<< Updated upstream
+=======
+        private string ReplaceOrAppendTrainArg(string trainArgs, string optionName, string value)
+        {
+            string quotedValue = QuoteTrainArgument(value);
+            string replacement = $"{optionName} {quotedValue}";
+            string pattern =
+                $@"(?<!\S){System.Text.RegularExpressions.Regex.Escape(optionName)}\s+(?:(['""])(?<quoted>.*?)\1|(?<plain>\S+))";
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+
+            if (regex.IsMatch(trainArgs))
+                return regex.Replace(trainArgs, _ => replacement, 1);
+
+            return (trainArgs + " " + replacement).Trim();
+        }
+
+        private string QuoteTrainArgument(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "\"\"";
+
+            bool needsQuote = value.Any(char.IsWhiteSpace) || value.Contains('"');
+
+            if (!needsQuote)
+                return value;
+
+            return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        }
+
+        private string GetModelPathFromTrainArgs(string trainArgs)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                trainArgs,
+                "(?:^|\\s)--model\\s+(?:(['\\\"])(?<quoted>.*?)\\1|(?<plain>\\S+))"
+            );
+
+            if (!match.Success)
+                return MainModelRelativePath;
+
+            string quoted = match.Groups["quoted"].Value;
+            string plain = match.Groups["plain"].Value;
+
+            return !string.IsNullOrWhiteSpace(quoted) ? quoted : plain;
+        }
+
+        private async Task<bool> TrainedModelExistsAsync(bool useWsl, string mycarPath, string versionModelPath)
+        {
+            if (!useWsl)
+                return File.Exists(ResolveLocalModelPath(mycarPath, versionModelPath));
+
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"version={BashQuote(versionModelPath)} && " +
+                "test -f \"$version\"";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+            await Task.Run(() => process.WaitForExit());
+
+            return process.ExitCode == 0;
+        }
+
+        private async Task<DateTime?> GetTrainedModelLastWriteTimeUtcAsync(bool useWsl, string mycarPath, string modelPath)
+        {
+            if (!useWsl)
+            {
+                string localPath = ResolveLocalModelPath(mycarPath, modelPath);
+                return File.Exists(localPath) ? File.GetLastWriteTimeUtc(localPath) : null;
+            }
+
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"model={BashQuote(modelPath)} && " +
+                "if [ -f \"$model\" ]; then stat -c %Y \"$model\"; fi";
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            string secondsText = output
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .LastOrDefault() ?? "";
+
+            if (long.TryParse(secondsText.Trim(), out long seconds))
+                return DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime;
+
+            return null;
+        }
+
+        private bool HasModelWriteTimeChanged(DateTime? before, DateTime? after)
+        {
+            if (!after.HasValue)
+                return false;
+
+            if (!before.HasValue)
+                return true;
+
+            return after.Value > before.Value;
+        }
+
+        private async Task SaveTrainingSnapshotAsync(bool useWsl, string mycarPath, string mainModelPath, string snapshotModelPath)
+        {
+            if (useWsl)
+            {
+                await SaveTrainingSnapshotInWslAsync(mycarPath, mainModelPath, snapshotModelPath);
+                return;
+            }
+
+            SaveTrainingSnapshotLocally(mycarPath, mainModelPath, snapshotModelPath);
+        }
+
+        private async Task SaveTrainingSnapshotInWslAsync(string mycarPath, string mainModelPath, string snapshotModelPath)
+        {
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                $"main={BashQuote(mainModelPath)} && " +
+                $"snapshot={BashQuote(snapshotModelPath)} && " +
+                "mkdir -p \"$(dirname \"$snapshot\")\" && " +
+                "cp -f \"$main\" \"$snapshot\" && " +
+                "for ext in png tflite; do " +
+                "src=\"${main%.h5}.$ext\"; " +
+                "dst=\"${snapshot%.h5}.$ext\"; " +
+                "if [ -f \"$src\" ]; then cp -f \"$src\" \"$dst\"; fi; " +
+                "done";
+
+            AppendLog("학습 스냅샷 저장 명령 = " + command);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            string error = await process.StandardError.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            if (!string.IsNullOrWhiteSpace(output))
+                AppendLog(output.Trim());
+
+            if (process.ExitCode != 0)
+                throw new Exception(error.Trim());
+
+            AppendLog($"학습 스냅샷 저장 완료: {snapshotModelPath}");
+        }
+
+        private void SaveTrainingSnapshotLocally(string mycarPath, string mainModelPath, string snapshotModelPath)
+        {
+            string sourceModelPath = ResolveLocalModelPath(mycarPath, mainModelPath);
+            string snapshotPath = ResolveLocalModelPath(mycarPath, snapshotModelPath);
+            string? snapshotDir = Path.GetDirectoryName(snapshotPath);
+
+            if (string.IsNullOrWhiteSpace(snapshotDir))
+                throw new Exception("스냅샷 저장 폴더를 확인할 수 없습니다.");
+
+            Directory.CreateDirectory(snapshotDir);
+
+            if (!File.Exists(sourceModelPath))
+                throw new FileNotFoundException("대표 모델 파일을 찾을 수 없습니다.", sourceModelPath);
+
+            File.Copy(sourceModelPath, snapshotPath, true);
+            CopyOptionalModelCompanionFiles(sourceModelPath, snapshotPath);
+
+            AppendLog($"학습 스냅샷 저장 완료: {snapshotPath}");
+        }
+
+        private async Task PromoteTrainedModelAsync(bool useWsl, string mycarPath, string versionModelPath)
+        {
+            if (useWsl)
+            {
+                await PromoteTrainedModelInWslAsync(mycarPath, versionModelPath);
+                return;
+            }
+
+            PromoteTrainedModelLocally(mycarPath, versionModelPath);
+        }
+
+        private async Task PromoteTrainedModelInWslAsync(string mycarPath, string versionModelPath)
+        {
+            string wslMycarPath = ConvertPathToWslPath(mycarPath);
+            string command =
+                $"cd {BashCdArgument(wslMycarPath)} && " +
+                "mkdir -p ./models && " +
+                $"version={BashQuote(versionModelPath)} && " +
+                "cp -f \"$version\" ./models/mypilot.h5 && " +
+                "for ext in png tflite; do " +
+                "src=\"${version%.h5}.$ext\"; " +
+                "if [ -f \"$src\" ]; then cp -f \"$src\" \"./models/mypilot.$ext\"; fi; " +
+                "done";
+
+            AppendLog("대표 모델 갱신 명령 = " + command);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "wsl.exe",
+                Arguments = $"-d {WslDistroName} -- bash -lc {QuoteWindowsArgument(command)}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using Process process = new Process();
+            process.StartInfo = psi;
+            process.Start();
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            string error = await process.StandardError.ReadToEndAsync();
+            await Task.Run(() => process.WaitForExit());
+
+            if (!string.IsNullOrWhiteSpace(output))
+                AppendLog(output.Trim());
+
+            if (process.ExitCode != 0)
+                throw new Exception(error.Trim());
+
+            AppendLog($"대표 모델 갱신 완료: {versionModelPath} -> ./models/mypilot.h5");
+        }
+
+        private void PromoteTrainedModelLocally(string mycarPath, string versionModelPath)
+        {
+            string sourceModelPath = ResolveLocalModelPath(mycarPath, versionModelPath);
+            string mainModelPath = Path.Combine(mycarPath, "models", "mypilot.h5");
+            string? mainModelDir = Path.GetDirectoryName(mainModelPath);
+
+            if (string.IsNullOrWhiteSpace(mainModelDir))
+                throw new Exception("대표 모델 저장 폴더를 확인할 수 없습니다.");
+
+            Directory.CreateDirectory(mainModelDir);
+
+            if (!File.Exists(sourceModelPath))
+                throw new FileNotFoundException("학습 결과 모델 파일을 찾을 수 없습니다.", sourceModelPath);
+
+            File.Copy(sourceModelPath, mainModelPath, true);
+            CopyOptionalModelCompanionFiles(sourceModelPath, mainModelPath);
+
+            AppendLog($"대표 모델 갱신 완료: {sourceModelPath} -> {mainModelPath}");
+        }
+
+        private string ResolveLocalModelPath(string mycarPath, string modelPath)
+        {
+            modelPath = modelPath.Trim().Trim('"');
+            modelPath = modelPath.Replace("/", "\\");
+
+            if (modelPath.StartsWith(".\\"))
+                modelPath = modelPath.Substring(2);
+
+            if (Path.IsPathRooted(modelPath))
+                return modelPath;
+
+            return Path.Combine(mycarPath, modelPath);
+        }
+
+        private void CopyOptionalModelCompanionFiles(string sourceModelPath, string mainModelPath)
+        {
+            string sourceBasePath = Path.Combine(
+                Path.GetDirectoryName(sourceModelPath) ?? "",
+                Path.GetFileNameWithoutExtension(sourceModelPath)
+            );
+
+            string mainBasePath = Path.Combine(
+                Path.GetDirectoryName(mainModelPath) ?? "",
+                Path.GetFileNameWithoutExtension(mainModelPath)
+            );
+
+            foreach (string extension in new[] { ".png", ".tflite" })
+            {
+                string sourcePath = sourceBasePath + extension;
+
+                if (File.Exists(sourcePath))
+                    File.Copy(sourcePath, mainBasePath + extension, true);
+            }
+        }
+
+>>>>>>> Stashed changes
         private async Task<(double angle, double throttle)> RunPredictOneInWslAsync(string modelPath, string imagePath)
         {
             string wslModelPath = ConvertPathToWslPath(modelPath);
