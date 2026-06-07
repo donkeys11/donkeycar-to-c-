@@ -1,4 +1,3 @@
-﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +10,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static ReaLTaiizor.Controls.ExtendedPanel;
 
 namespace DonkeycarManager
 {

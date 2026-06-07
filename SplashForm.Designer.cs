@@ -52,7 +52,7 @@ namespace DonkeycarManager
                 using var fStat = new Font("Segoe UI", 8.5f);
                 using var bGreen = new SolidBrush(C_GREEN);
                 using var bGray = new SolidBrush(C_TEXT2);
-                g.DrawString("●  ReaLTaiizor 연결됨", fStat, bGreen,
+                g.DrawString("●  WinForms UI 준비됨", fStat, bGreen,
                     new PointF(14, ClientSize.Height - 20));
                 var repo = "v1.0 · donkeys11/donkeycar-to-c-";
                 var tw = g.MeasureString(repo, fStat);
