@@ -375,7 +375,7 @@ namespace DonkeycarManager
             picCleanerPreview.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             picCleanerPreview.BackColor = Color.Black;
             picCleanerPreview.BorderStyle = BorderStyle.FixedSingle;
-            picCleanerPreview.Location = new Point(32, 145);
+            picCleanerPreview.Location = new Point(32, 163);
             picCleanerPreview.Margin = new Padding(4);
             picCleanerPreview.Name = "picCleanerPreview";
             picCleanerPreview.Size = new Size(1459, 467);
@@ -413,12 +413,12 @@ namespace DonkeycarManager
             btnUndo.FlatStyle = FlatStyle.Flat;
             btnUndo.Font = new Font("Segoe MDL2 Assets", 14F);
             btnUndo.ForeColor = Color.White;
-            btnUndo.Location = new Point(1145, 191);
+            btnUndo.Location = new Point(2122, 386);
             btnUndo.Margin = new Padding(6);
             btnUndo.Name = "btnUndo";
-            btnUndo.Size = new Size(55, 55);
+            btnUndo.Size = new Size(93, 55);
             btnUndo.TabIndex = 97;
-            btnUndo.Text = "\uE7A7";
+            btnUndo.Text = "";
             btnUndo.UseVisualStyleBackColor = false;
             // 
             // lblCleanerInfo
@@ -547,10 +547,10 @@ namespace DonkeycarManager
             btnDeleteFrame.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnDeleteFrame.BackColor = Color.LightCoral;
             btnDeleteFrame.FlatStyle = FlatStyle.Flat;
-            btnDeleteFrame.Location = new Point(1083, 191);
+            btnDeleteFrame.Location = new Point(2022, 386);
             btnDeleteFrame.Margin = new Padding(8, 9, 8, 9);
             btnDeleteFrame.Name = "btnDeleteFrame";
-            btnDeleteFrame.Size = new Size(55, 55);
+            btnDeleteFrame.Size = new Size(93, 55);
             btnDeleteFrame.TabIndex = 14;
             btnDeleteFrame.UseVisualStyleBackColor = false;
             // 
@@ -559,7 +559,7 @@ namespace DonkeycarManager
             lstCleanerFrames.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
             lstCleanerFrames.Font = new Font("Consolas", 9F);
             lstCleanerFrames.HorizontalScrollbar = true;
-            lstCleanerFrames.Location = new Point(1537, 407);
+            lstCleanerFrames.Location = new Point(1537, 386);
             lstCleanerFrames.Margin = new Padding(4);
             lstCleanerFrames.Name = "lstCleanerFrames";
             lstCleanerFrames.SelectionMode = SelectionMode.MultiExtended;
@@ -714,7 +714,7 @@ namespace DonkeycarManager
             tabTrainer.Margin = new Padding(4);
             tabTrainer.Name = "tabTrainer";
             tabTrainer.Padding = new Padding(4);
-            tabTrainer.Size = new Size(2184, 1153);
+            tabTrainer.Size = new Size(2301, 1153);
             tabTrainer.TabIndex = 1;
             tabTrainer.Text = "학습 실행";
             // 
@@ -891,7 +891,7 @@ namespace DonkeycarManager
             tabPilotTest.Margin = new Padding(4);
             tabPilotTest.Name = "tabPilotTest";
             tabPilotTest.Padding = new Padding(4);
-            tabPilotTest.Size = new Size(2184, 1153);
+            tabPilotTest.Size = new Size(2301, 1153);
             tabPilotTest.TabIndex = 2;
             tabPilotTest.Text = "모델 테스트";
             // 
