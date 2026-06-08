@@ -91,6 +91,7 @@ namespace DonkeycarManager
         private int cleanerRangePlayIndex = -1;
         private bool isDraggingCleanerRange = false;
         private List<string> backupFolderPaths = new List<string>();
+        private List<int> markedFrameIndices = new List<int>();
 
         private sealed class MismatchScanResult
         {
@@ -516,6 +517,10 @@ namespace DonkeycarManager
             btnClearRange.SetBounds(actionX, timelineY + 52, actionWidth, 42);
             btnCleanerAutoPlay.SetBounds(actionX + actionWidth + actionGap, timelineY + 52, actionWidth, 42);
             btnCleanerMark.SetBounds(actionX, timelineY + 104, actionWidth * 2 + actionGap, 42);
+
+
+
+
         }
 
         private void SetTrainingExtensionControlsEnabled(bool enabled)
@@ -886,6 +891,7 @@ namespace DonkeycarManager
             btnClearRange.Click += btnClearRange_Click;
 
             btnCleanerAutoPlay.Click += btnCleanerAutoPlay_Click;
+            
 
             btnBrowseMycar.Click += btnBrowseMycar_Click;
             btnTrain.Click += btnTrain_Click;
@@ -907,6 +913,8 @@ namespace DonkeycarManager
             btnSaveProcessed.Click += btnSaveProcessed_Click;
             chkFlipHorizontal.CheckedChanged += chkFlipHorizontal_CheckedChanged;
             chkGrayscale.CheckedChanged += chkGrayscale_CheckedChanged;
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
         }
 
         private void btnUndo_Click(object? sender, EventArgs e)
@@ -1613,13 +1621,17 @@ namespace DonkeycarManager
 
                 return;
             }
-            isAutoRangeSelecting = true;
+            
 
             cleanerAutoPlayTimer.Start();
             SyncAutoPlayButtons();
 
             AppendLog("자동 재생 시작");
         }
+
+        
+        
+
 
         private void btnCleanerStop_Click(object? sender, EventArgs e)
         {
@@ -2076,6 +2088,8 @@ namespace DonkeycarManager
 
         private void pnlCleanerTimeline_MouseDown(object? sender, MouseEventArgs e)
         {
+            
+
             if (visibleFrames.Count == 0)
                 return;
 
@@ -2083,6 +2097,7 @@ namespace DonkeycarManager
 
             if (index < 0)
                 return;
+
 
             ShowFrame(index);
 
@@ -2099,6 +2114,21 @@ namespace DonkeycarManager
             // 시작점 초기화
             pendingRangeStart = index;
 
+            pnlCleanerTimeline.Invalidate();
+        }
+
+        private void ToggleMark(int index)
+        {
+            if (markedFrameIndices.Contains(index))
+            {
+                markedFrameIndices.Remove(index);
+                AppendLog($"마크 제거: {index + 1}번");
+            }
+            else
+            {
+                markedFrameIndices.Add(index);
+                AppendLog($"마크 추가: {index + 1}번");
+            }
             pnlCleanerTimeline.Invalidate();
         }
 
@@ -2202,6 +2232,13 @@ namespace DonkeycarManager
         private void ResetCleanerRange()
         {
             cleanerRanges.Clear();
+            markedFrameIndices.Clear();
+           
+            if (btnCleanerMark != null)
+            {
+                btnCleanerMark.Text = "구간 마크";
+                btnCleanerMark.BackColor = Color.Yellow;
+            }
 
             pendingRangeStart = -1;
 
@@ -2420,6 +2457,21 @@ namespace DonkeycarManager
 
                 string indexText = frame.Index.ToString("D4");
                 g.DrawString(indexText, indexFont, textBrush, thumbRect.Left + 4, thumbRect.Bottom + 2);
+            }
+            // 마크 표시 (▼ 삼각형)
+            using SolidBrush markBrush = new SolidBrush(Color.OrangeRed);
+            foreach (int markedIndex in markedFrameIndices)
+            {
+                int slot = markedIndex - cleanerTimelineStartIndex;
+                if (slot < 0 || slot >= maxSlotCount) continue;
+                int mx = trackRect.Left + slot * slotWidth + CleanerTimelineThumbWidth / 2;
+                PointF[] triangle = new PointF[]
+                {
+                    new PointF(mx - 7, trackRect.Top - 1),
+                    new PointF(mx + 7, trackRect.Top - 1),
+                    new PointF(mx, trackRect.Top + 12)
+                };
+                g.FillPolygon(markBrush, triangle);
             }
         }
 
@@ -3782,16 +3834,34 @@ namespace DonkeycarManager
                 AppendLog(
                     $"로드 완료: {visibleFrames.Count}개 프레임 / catalog 파일 {catalogFiles.Length}개 / 전체 줄 {totalLines}개"
                 );
+                AppendLog(DataSummary.Calculate(visibleFrames).ToString());
 
                 if (parseErrorCount > 0)
                     AppendLog($"catalog 파싱 실패 줄: {parseErrorCount}개");
 
                 UpdateModelStatus();
+                ScanAndRestoreBackupFolders();
             }
             catch (Exception ex)
             {
                 MessageBox.Show("catalog 파일을 읽는 중 오류가 발생했습니다.\n\n" + ex.Message);
             }
+        }
+
+        private void ScanAndRestoreBackupFolders()
+        {
+            if (string.IsNullOrWhiteSpace(dataFolderPath))
+                return;
+
+            string backupRoot = Path.Combine(dataFolderPath, "backup");
+
+            if (!Directory.Exists(backupRoot))
+                return;
+
+            backupFolderPaths = Directory
+                .GetDirectories(backupRoot)
+                .OrderBy(path => path)
+                .ToList();
         }
 
         private string[] GetCatalogFiles()
@@ -3903,6 +3973,16 @@ namespace DonkeycarManager
                 return;
 
             if (lst.SelectedIndex < 0)
+                return;
+
+            DialogResult warn = MessageBox.Show(
+            "선택한 시점으로 복원하면 현재 상태로 다시 돌아올 수 없습니다.\n\n계속하시겠습니까?",
+            "복원 확인",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning
+            );
+
+            if (warn != DialogResult.Yes)
                 return;
 
             string selectedPath = backupFolderPaths[lst.SelectedIndex];
@@ -4119,7 +4199,7 @@ namespace DonkeycarManager
 
                     if (chkStopDataOnly.Checked && Math.Abs(f.Throttle) > 0.000001)
                         isGood = false;
-                    if (chkExcludeJitterAngle.Checked && Math.Abs(f.Angle) <= 0.3)
+                    if (chkExcludeJitterAngle.Checked && Math.Abs(f.Angle) <= 0.2)
                         isGood = false;
 
                     if (isGood)
@@ -5369,6 +5449,10 @@ namespace DonkeycarManager
             if (trainProcess != null)
                 UpdateTrainingProgressFromLog(message);
 
+            if (txtLog.Lines.Length > 500)
+                txtLog.Text = string.Join(Environment.NewLine,
+                    txtLog.Lines.Skip(txtLog.Lines.Length - 500));
+
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
         }
 
@@ -6161,13 +6245,17 @@ namespace DonkeycarManager
 
         private void btnCleanerMark_Click(object? sender, EventArgs e)
         {
-            if (!isAutoRangeSelecting)
+            if (isAutoRangeSelecting || cleanerRanges.Count > 0 || pendingRangeStart >= 0)
             {
-                MessageBox.Show("자동 재생 중에만 사용할 수 있습니다.");
-                return;
+                ResetCleanerRange();
             }
-
-            AddRangePoint(currentIndex);
+            else
+            {
+                isAutoRangeSelecting = true;
+                btnCleanerMark.Text = "구간 마크 해제";
+                btnCleanerMark.BackColor = Color.OrangeRed;
+                AppendLog("구간 마크 대기 모드 - 자동 재생 후 스페이스바로 마크 찍기");
+            }
         }
         private void AddRangePoint(int index)
         {
@@ -6178,11 +6266,9 @@ namespace DonkeycarManager
             if (pendingRangeStart < 0)
             {
                 pendingRangeStart = index;
-
+                markedFrameIndices.Add(index); // ← 시작점 마크 추가
                 AppendLog($"구간 시작 지정 : {index + 1}");
-
                 pnlCleanerTimeline.Invalidate();
-
                 return;
             }
 
@@ -6191,16 +6277,24 @@ namespace DonkeycarManager
             int end = Math.Max(pendingRangeStart, index);
 
             cleanerRanges.Add((start, end));
+            markedFrameIndices.Add(index); // ← 끝점 마크 추가
 
-            AppendLog(
-                $"구간 추가 : {start + 1} ~ {end + 1}"
-            );
+            AppendLog($"구간 추가 : {start + 1} ~ {end + 1}");
 
             pendingRangeStart = -1;
 
             UpdateCleanerRangeUi();
-
             pnlCleanerTimeline.Invalidate();
+
+
+        }
+        private void MainForm_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space && isAutoRangeSelecting && currentIndex >= 0)
+            {
+                AddRangePoint(currentIndex);
+                e.Handled = true;
+            }
         }
     }
 }
