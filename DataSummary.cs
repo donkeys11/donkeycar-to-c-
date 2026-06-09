@@ -42,10 +42,10 @@ namespace DonkeycarManager
         public override string ToString()
         {
             return
-                $"전체 프레임 수: {TotalFrames}개\n" +
-                $"정지 프레임 수: {StopFrames}개 ({StopRatio:F1}%)\n" +
-                $"직진 프레임 수: {ZeroAngleFrames}개\n" +
-                $"평균 핸들 각도: {AverageAngle:F4}\n" +
+                $"전체 프레임 수: {TotalFrames}개 \n" +
+                $"정지 프레임 수: {StopFrames}개 ({StopRatio:F1}%) \n" +
+                $"직진 프레임 수: {ZeroAngleFrames}개 \n" +
+                $"평균 핸들 각도: {AverageAngle:F4} \n" +
                 $"평균 속도: {AverageThrottle:F4}";
         }
     }

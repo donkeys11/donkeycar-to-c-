@@ -71,6 +71,79 @@ namespace DonkeycarManager
                     btn.Invalidate();
                 };
             }
+            // ── 상단 영역: 이미지(왼) + 텍스트(오) ───────────
+            int areaTop = 60;
+            int areaBot = sy - 30;
+            int areaH = areaBot - areaTop;
+            int halfW = ClientSize.Width / 2;
+
+            // 왼쪽 이미지
+            var pb = new PictureBox
+            {
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.FromArgb(248, 249, 250),
+                Location = new Point(80, areaTop),
+                Size = new Size(halfW - 100, areaH)
+            };
+
+            string imgPath = Path.Combine(Application.StartupPath, "img", "splash_donkey.png");
+            if (File.Exists(imgPath))
+            {
+                var original = new Bitmap(imgPath);
+                var result = new Bitmap(original.Width, original.Height,
+                                        System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                for (int y = 0; y < original.Height; y++)
+                {
+                    for (int x = 0; x < original.Width; x++)
+                    {
+                        var pixel = original.GetPixel(x, y);
+                        if (pixel.R > 240 && pixel.G > 240 && pixel.B > 240)
+                            result.SetPixel(x, y, Color.Transparent);
+                        else
+                            result.SetPixel(x, y, pixel);
+                    }
+                }
+                pb.Image = result;
+            }
+
+            // 오른쪽 텍스트
+            float fontSize = ClientSize.Height * 0.04f;
+            int lineGap = (int)(ClientSize.Height * 0.13f);
+            int textBlockH = lineGap * 3;
+            int textY = areaTop + (areaH - textBlockH) / 2;
+            int textX = halfW + 60;
+
+            var lblData = new Label
+            {
+                Text = "Data",
+                Font = new Font("Segoe UI", fontSize, FontStyle.Bold),
+                ForeColor = Color.FromArgb(26, 26, 46),
+                BackColor = Color.Transparent,
+                AutoSize = true,
+                Location = new Point(textX, textY)
+            };
+
+            var lblManager = new Label
+            {
+                Text = "Manager",
+                Font = new Font("Segoe UI", fontSize, FontStyle.Bold),
+                ForeColor = Color.FromArgb(63, 185, 80),
+                BackColor = Color.Transparent,
+                AutoSize = true,
+                Location = new Point(textX, textY + lineGap)
+            };
+
+            var lblUI = new Label
+            {
+                Text = "UI",
+                Font = new Font("Segoe UI", fontSize, FontStyle.Regular),
+                ForeColor = Color.FromArgb(180, 190, 200),
+                BackColor = Color.Transparent,
+                AutoSize = true,
+                Location = new Point(textX, textY + lineGap * 2)
+            };
+
+            Controls.AddRange(new Control[] { pb, lblData, lblManager, lblUI });
         }
 
         private void OpenMainForm(int tabIndex)

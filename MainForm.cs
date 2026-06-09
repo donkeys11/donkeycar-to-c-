@@ -1995,7 +1995,7 @@ namespace DonkeycarManager
                 ResetCleanerRange();
                 ApplyFilter();
 
-                AppendLog($"{logTitle} 완료: {removedCountForCatalog}개 프레임 삭제");
+                AppendLog($"{logTitle} 완료: {framesToDelete.First().Index}번 ~ {framesToDelete.Last().Index}번 / 총 {removedCountForCatalog}개 프레임 삭제");
                 MessageBox.Show($"{removedCountForCatalog}개 프레임 삭제 및 백업이 완료되었습니다.\n[백업 폴더: data/backup]");
             }
             catch (Exception ex)

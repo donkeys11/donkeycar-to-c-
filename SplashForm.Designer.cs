@@ -41,8 +41,7 @@ namespace DonkeycarManager
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                using var divPen = new Pen(Color.FromArgb(220, 225, 230), 1f);
-                g.DrawLine(divPen, 24, 80, ClientSize.Width - 24, 80);
+                
 
                 using var sbBrush = new SolidBrush(Color.FromArgb(235, 237, 240));
                 g.FillRectangle(sbBrush, 0, ClientSize.Height - 30, ClientSize.Width, 30);
@@ -59,12 +58,9 @@ namespace DonkeycarManager
                 g.DrawString(repo, fStat, bGray,
                     new PointF(ClientSize.Width - tw.Width - 14, ClientSize.Height - 20));
 
-                using var fTitle = new Font("Segoe UI", 17f, FontStyle.Bold);
-                using var bW = new SolidBrush(C_TEXT1);
-                g.DrawString("Donkeycar Manager", fTitle, bW, new PointF(22, 16));
+               
 
-                using var fLabel = new Font("Segoe UI", 8.5f);
-                g.DrawString("무엇을 할까요?", fLabel, bGray, new PointF(24, 90));
+               
             };
 
             btnCleaner = MakeBtn("adjust", "데이터 정리", "밝기·필터·삭제", C_GREEN, Color.FromArgb(210, 240, 220));
