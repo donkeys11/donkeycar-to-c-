@@ -9,10 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="img\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="img\splash_donkey.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
