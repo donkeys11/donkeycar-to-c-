@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -302,14 +302,17 @@ namespace DonkeycarManager
                     lblTrainArgs.PreferredSize.Width
                 }.Max()
             );
-            int rowHeight = 36;
-            int rowGap = 52;
+            int rowHeight = 44;
+            int rowGap = 68;
             int tabWidth = Math.Max(tabTrainer.ClientSize.Width, 900);
             int tabHeight = Math.Max(tabTrainer.ClientSize.Height, 520);
-            int graphX = Math.Max(720, (int)(tabWidth * 0.57));
-            int graphWidth = Math.Max(380, tabWidth - graphX - margin);
             int fieldX = margin + labelWidth + 14;
-            int fieldWidth = Math.Max(420, graphX - fieldX - 34);
+            int fieldWidth = Math.Max(560, tabWidth - fieldX - margin);
+            int pathButtonWidth = 220;
+            int modelScanButtonWidth = 230;
+            int modelBrowseButtonWidth = 220;
+            int buttonGap = 12;
+            int bottomGap = 30;
             int y = 24;
 
             lblTitleTrainer.Location = new Point(margin, y);
@@ -321,45 +324,66 @@ namespace DonkeycarManager
             cmbTrainSourceModel.Font = new Font("맑은 고딕", 10.5F);
             lblLossGraphTitle.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             lblLossGraphInfo.Font = new Font("맑은 고딕", 10F);
+            btnBrowseMycar.Font = new Font("맑은 고딕", 10.5F);
+            btnScanTrainSourceModels.Font = new Font("맑은 고딕", 10.5F);
+            btnBrowseTrainSourceModel.Font = new Font("맑은 고딕", 10.5F);
 
             lblMycarPath.Location = new Point(margin, y + 7);
-            txtMycarPath.SetBounds(fieldX, y, Math.Max(260, fieldWidth - 126), rowHeight);
-            btnBrowseMycar.SetBounds(fieldX + fieldWidth - 116, y, 116, rowHeight);
+            txtMycarPath.SetBounds(fieldX, y, Math.Max(260, fieldWidth - pathButtonWidth - buttonGap), rowHeight);
+            btnBrowseMycar.SetBounds(fieldX + fieldWidth - pathButtonWidth, y, pathButtonWidth, rowHeight);
             y += rowGap;
 
             lblPythonExe.Location = new Point(margin, y + 7);
-            txtPythonExe.SetBounds(fieldX, y, 220, rowHeight);
+            txtPythonExe.SetBounds(fieldX, y, 260, rowHeight);
             y += rowGap;
 
             lblTrainSourceModel.Location = new Point(margin, y + 7);
-            cmbTrainSourceModel.SetBounds(fieldX, y, Math.Max(260, fieldWidth - 244), rowHeight);
-            btnScanTrainSourceModels.SetBounds(fieldX + fieldWidth - 236, y, 112, rowHeight);
-            btnBrowseTrainSourceModel.SetBounds(fieldX + fieldWidth - 116, y, 116, rowHeight);
+            cmbTrainSourceModel.SetBounds(
+                fieldX,
+                y,
+                Math.Max(260, fieldWidth - modelScanButtonWidth - modelBrowseButtonWidth - buttonGap * 2),
+                rowHeight);
+            btnScanTrainSourceModels.SetBounds(
+                fieldX + fieldWidth - modelScanButtonWidth - modelBrowseButtonWidth - buttonGap,
+                y,
+                modelScanButtonWidth,
+                rowHeight);
+            btnBrowseTrainSourceModel.SetBounds(
+                fieldX + fieldWidth - modelBrowseButtonWidth,
+                y,
+                modelBrowseButtonWidth,
+                rowHeight);
             y += rowGap;
 
             lblTrainArgs.Location = new Point(margin, y + 7);
             txtTrainArgs.SetBounds(fieldX, y, fieldWidth, rowHeight);
             y += rowGap + 12;
 
-            btnTrain.SetBounds(fieldX, y, 164, 50);
-            btnStopTrain.SetBounds(fieldX + 184, y, 164, 50);
-            btnEndTrain.SetBounds(fieldX + 368, y, 164, 50);
-            y += 72;
+            btnTrain.SetBounds(fieldX, y, 190, 54);
+            btnStopTrain.SetBounds(fieldX + 212, y, 190, 54);
+            btnEndTrain.SetBounds(fieldX + 424, y, 190, 54);
+            y += 80;
 
             lblTrainProgress.Location = new Point(fieldX, y);
             y += 32;
 
             prgTrainProgress.SetBounds(fieldX, y, fieldWidth, 24);
-            y += 54;
+            y += 58;
 
             lblModelStatus.Location = new Point(fieldX, y);
-            y += 46;
+            y += 54;
 
-            lblTrainInfo.SetBounds(fieldX, y, fieldWidth, Math.Max(70, tabHeight - y - margin));
+            int bottomY = y;
+            int bottomHeight = Math.Max(170, tabHeight - bottomY - margin);
+            int trainInfoWidth = Math.Max(560, Math.Min(860, (int)(fieldWidth * 0.46)));
+            int graphX = fieldX + trainInfoWidth + bottomGap;
+            int graphWidth = Math.Max(520, tabWidth - graphX - margin);
 
-            lblLossGraphTitle.Location = new Point(graphX, 28);
-            lblLossGraphInfo.SetBounds(graphX, 58, graphWidth, 34);
-            pnlLossGraph.SetBounds(graphX, 98, graphWidth, Math.Max(300, tabHeight - 122));
+            lblTrainInfo.SetBounds(fieldX, bottomY, trainInfoWidth, bottomHeight);
+
+            lblLossGraphTitle.Location = new Point(graphX, bottomY);
+            lblLossGraphInfo.SetBounds(graphX, bottomY + 30, graphWidth, 30);
+            pnlLossGraph.SetBounds(graphX, bottomY + 66, graphWidth, Math.Max(120, bottomHeight - 66));
         }
 
         private void UpdateTrainSourceModelControls()
@@ -465,12 +489,14 @@ namespace DonkeycarManager
 
             int sliderLabelX = mainX + 350;
             int sliderX = sliderLabelX + 84;
-            int sliderWidth = Math.Max(260, mainWidth - (sliderX - mainX) - 300);
+            int saveButtonWidth = 300;
+            int sliderWidth = Math.Max(260, mainWidth - (sliderX - mainX) - saveButtonWidth - 34);
             lblBrightness.Location = new Point(sliderLabelX, adjustY + 45);
             trbBrightness.SetBounds(sliderX, adjustY + 40, sliderWidth, 34);
             lblContrast.Location = new Point(sliderLabelX, adjustY + 84);
             trbContrast.SetBounds(sliderX, adjustY + 79, sliderWidth, 34);
-            btnSaveProcessed.SetBounds(mainX + mainWidth - 230, adjustY + 58, 220, 48);
+            btnSaveProcessed.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            btnSaveProcessed.SetBounds(mainX + mainWidth - saveButtonWidth, adjustY + 58, saveButtonWidth, 50);
 
             grpFilters.SetBounds(sideX, 62, sideWidth, 172);
             chkThrottlePositive.SetBounds(22, 34, sideWidth - 44, 28);
@@ -498,13 +524,15 @@ namespace DonkeycarManager
             int margin = 18;
             int groupWidth = Math.Max(grpCleanerRangeEditor.ClientSize.Width, 760);
             int groupHeight = Math.Max(grpCleanerRangeEditor.ClientSize.Height, 160);
-            int actionWidth = 150;
-            int actionGap = 10;
+            int actionWidth = 190;
+            int actionGap = 12;
             int actionX = groupWidth - margin - actionWidth * 2 - actionGap;
             int timelineWidth = Math.Max(320, actionX - margin * 2);
 
             lblCleanerRangeInfo.Location = new Point(margin, 28);
-            lblCleanerRangeHint.SetBounds(margin + 220, 28, Math.Max(260, timelineWidth - 240), 28);
+            lblCleanerRangeHint.AutoSize = false;
+            lblCleanerRangeHint.Font = new Font("맑은 고딕", 9.5F);
+            lblCleanerRangeHint.SetBounds(margin + 230, 28, Math.Max(420, timelineWidth - 250), 30);
 
             int timelineY = 64;
             int timelineHeight = Math.Max(70, groupHeight - timelineY - 56);
@@ -512,11 +540,23 @@ namespace DonkeycarManager
             hsbCleanerTimeline.SetBounds(margin, timelineY + timelineHeight + 6, timelineWidth, 20);
             lblCleanerTimelineScrollInfo.Location = new Point(margin, timelineY + timelineHeight + 32);
 
-            btnDeleteRange.SetBounds(actionX, timelineY, actionWidth, 42);
-            btnPlayRange.SetBounds(actionX + actionWidth + actionGap, timelineY, actionWidth, 42);
-            btnClearRange.SetBounds(actionX, timelineY + 52, actionWidth, 42);
-            btnCleanerAutoPlay.SetBounds(actionX + actionWidth + actionGap, timelineY + 52, actionWidth, 42);
-            btnCleanerMark.SetBounds(actionX, timelineY + 104, actionWidth * 2 + actionGap, 42);
+            Button[] rangeButtons =
+            {
+                btnDeleteRange,
+                btnPlayRange,
+                btnClearRange,
+                btnCleanerAutoPlay,
+                btnCleanerMark
+            };
+
+            foreach (Button button in rangeButtons)
+                button.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+
+            btnDeleteRange.SetBounds(actionX, timelineY, actionWidth, 46);
+            btnPlayRange.SetBounds(actionX + actionWidth + actionGap, timelineY, actionWidth, 46);
+            btnClearRange.SetBounds(actionX, timelineY + 56, actionWidth, 46);
+            btnCleanerAutoPlay.SetBounds(actionX + actionWidth + actionGap, timelineY + 56, actionWidth, 46);
+            btnCleanerMark.SetBounds(actionX, timelineY + 112, actionWidth * 2 + actionGap, 46);
 
 
 
@@ -649,31 +689,46 @@ namespace DonkeycarManager
                 Math.Max(lblModelPath.PreferredSize.Width, lblModelList.PreferredSize.Width)
             );
             int fieldX = margin + labelWidth + 16;
-            int topButtonWidth = 110;
+            int topButtonWidth = 200;
+            int scanButtonWidth = 260;
             int y = 116;
-            int fieldWidth = Math.Max(360, Math.Min(760, tabWidth - fieldX - topButtonWidth - margin * 2));
+            int fieldWidth = Math.Max(560, Math.Min(1040, tabWidth - fieldX - topButtonWidth - margin * 2));
+            int buttonGap = 16;
+            int commandButtonHeight = 52;
+            int runButtonWidth = 360;
+            int autoButtonWidth = 210;
+
+            btnBrowseModel.Font = new Font("맑은 고딕", 10.5F);
+            btnScanModels.Font = new Font("맑은 고딕", 10.5F);
+            btnRunPilotTest.Font = new Font("맑은 고딕", 10.5F);
+            btnPilotAutoPlay.Font = new Font("맑은 고딕", 10.5F);
 
             lblModelPath.Location = new Point(margin, y + 6);
-            txtModelPath.SetBounds(fieldX, y, fieldWidth, 34);
-            btnBrowseModel.SetBounds(fieldX + fieldWidth + 16, y - 1, topButtonWidth, 36);
+            txtModelPath.SetBounds(fieldX, y, fieldWidth, 40);
+            btnBrowseModel.SetBounds(fieldX + fieldWidth + buttonGap, y - 1, topButtonWidth, 42);
 
             y += 52;
             lblModelList.Location = new Point(margin, y + 6);
-            cmbModelList.SetBounds(fieldX, y, Math.Max(260, fieldWidth - 138), 34);
-            btnScanModels.SetBounds(fieldX + fieldWidth - 122, y - 1, 128, 36);
+            cmbModelList.SetBounds(fieldX, y, Math.Max(260, fieldWidth - scanButtonWidth - buttonGap), 40);
+            btnScanModels.SetBounds(fieldX + fieldWidth - scanButtonWidth, y - 1, scanButtonWidth, 42);
 
-            y += 56;
-            btnRunPilotTest.SetBounds(fieldX, y, 230, 44);
-            btnUseViewerFrame.SetBounds(fieldX + 246, y, 190, 44);
-            btnPilotAutoPlay.SetBounds(fieldX + 452, y, 150, 44);
-            btnPilotStop.SetBounds(fieldX + 618, y, 110, 44);
+            y += 62;
+            btnRunPilotTest.Text = "현재 이미지로 예측";
+            btnRunPilotTest.SetBounds(fieldX, y, runButtonWidth, commandButtonHeight);
+            btnPilotAutoPlay.SetBounds(fieldX + runButtonWidth + buttonGap, y, autoButtonWidth, commandButtonHeight);
+            btnUseViewerFrame.Visible = false;
+            btnUseViewerFrame.Enabled = false;
+            btnUseViewerFrame.SetBounds(fieldX + runButtonWidth + buttonGap + autoButtonWidth + buttonGap, y, 1, commandButtonHeight);
+            btnPilotStop.SetBounds(fieldX + runButtonWidth + buttonGap + autoButtonWidth + buttonGap, y, 1, commandButtonHeight);
+            btnPilotStop.Visible = false;
+            btnPilotStop.Enabled = false;
 
             int contentTop = y + 66;
             int contentWidth = Math.Max(720, tabWidth - margin * 2);
             int contentHeight = Math.Max(260, tabHeight - contentTop - margin);
 
-            int listWidth = Math.Max(260, Math.Min(330, (int)(contentWidth * 0.16)));
-            int statWidth = Math.Max(360, Math.Min(420, (int)(contentWidth * 0.2)));
+            int listWidth = Math.Max(250, Math.Min(290, (int)(contentWidth * 0.14)));
+            int statWidth = Math.Max(500, Math.Min(580, (int)(contentWidth * 0.27)));
             int listX = tabWidth - margin - listWidth;
             int statX = listX - gap - statWidth;
             int picX = margin;
@@ -698,6 +753,15 @@ namespace DonkeycarManager
                 label.Height = 32;
             }
 
+            lblActualAngle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblPredictedAngle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblActualThrottle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblPredictedThrottle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblAngleError.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblPilotWarning.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblPilotNote.AutoSize = false;
+            lblPilotNote.Font = new Font("맑은 고딕", 9.5F);
+
             lblActualAngle.SetBounds(statX, contentTop, statWidth, 32);
             lblPredictedAngle.SetBounds(statX, contentTop + 36, statWidth, 32);
             lblActualThrottle.SetBounds(statX, contentTop + 84, statWidth, 32);
@@ -706,7 +770,8 @@ namespace DonkeycarManager
             lblPilotWarning.SetBounds(statX, contentTop + 216, statWidth, 36);
             lblPilotNote.SetBounds(statX, contentTop + 268, statWidth, Math.Max(120, contentHeight - 268));
 
-            lblPilotImageList.Location = new Point(listX, contentTop);
+            lblPilotImageList.AutoSize = false;
+            lblPilotImageList.SetBounds(listX, contentTop, listWidth, 32);
             lstPilotFrames.SetBounds(listX, contentTop + 34, listWidth, Math.Max(180, contentHeight - 34));
         }
 
@@ -1522,6 +1587,7 @@ namespace DonkeycarManager
                 File.WriteAllLines(group.Key, keptLines);
             }
 
+            RepairTubManifestCatalogInfo(dataFolderPath);
             return removedCount;
         }
 
@@ -2753,7 +2819,10 @@ namespace DonkeycarManager
                 await EnsureTrainWithTransferScriptAsync(useWsl, mycarPath);
 
                 if (hasSelectedDataFolder)
+                {
+                    RepairTubManifestCatalogInfo(dataFolderPath);
                     ConvertCatalogToCsv(dataFolderPath);
+                }
             }
             catch (Exception ex)
             {
@@ -3869,8 +3938,16 @@ namespace DonkeycarManager
             if (string.IsNullOrWhiteSpace(dataFolderPath) || !Directory.Exists(dataFolderPath))
                 return Array.Empty<string>();
 
+            return GetCatalogFilesForFolder(dataFolderPath);
+        }
+
+        private string[] GetCatalogFilesForFolder(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                return Array.Empty<string>();
+
             return Directory
-                .GetFiles(dataFolderPath, "catalog_*.catalog")
+                .GetFiles(folderPath, "catalog_*.catalog")
                 .OrderBy(GetCatalogNumber)
                 .ThenBy(path => path)
                 .ToArray();
@@ -3885,6 +3962,84 @@ namespace DonkeycarManager
                 return number;
 
             return int.MaxValue;
+        }
+
+        private void RepairTubManifestCatalogInfo(string folderPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                    return;
+
+                string manifestPath = Path.Combine(folderPath, "manifest.json");
+
+                if (!File.Exists(manifestPath))
+                {
+                    AppendLog("[경고] manifest.json 파일이 없어 catalog 목록을 보정하지 못했습니다.");
+                    return;
+                }
+
+                string[] catalogFiles = GetCatalogFilesForFolder(folderPath);
+
+                if (catalogFiles.Length == 0)
+                    return;
+
+                string[] manifestLines = File.ReadAllLines(manifestPath, Encoding.UTF8);
+
+                if (manifestLines.Length < 5)
+                {
+                    AppendLog("[경고] manifest.json 형식이 예상과 달라 catalog 목록을 보정하지 않았습니다.");
+                    return;
+                }
+
+                int totalRecords = catalogFiles.Sum(path => File
+                    .ReadLines(path)
+                    .Count(line => !string.IsNullOrWhiteSpace(line)));
+
+                string[] catalogNames = catalogFiles
+                    .Select(Path.GetFileName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Cast<string>()
+                    .ToArray();
+
+                System.Text.Json.Nodes.JsonNode? node =
+                    System.Text.Json.Nodes.JsonNode.Parse(manifestLines[manifestLines.Length - 1]);
+
+                if (node is not System.Text.Json.Nodes.JsonObject catalogInfo)
+                {
+                    AppendLog("[경고] manifest catalog 정보 형식이 예상과 달라 보정하지 않았습니다.");
+                    return;
+                }
+
+                string oldCatalogInfo = catalogInfo.ToJsonString();
+                System.Text.Json.Nodes.JsonArray paths = new System.Text.Json.Nodes.JsonArray();
+
+                foreach (string catalogName in catalogNames)
+                    paths.Add(catalogName);
+
+                catalogInfo["paths"] = paths;
+                catalogInfo["current_index"] = totalRecords;
+
+                if (!catalogInfo.ContainsKey("max_len"))
+                    catalogInfo["max_len"] = CatalogChunkSize;
+
+                if (!catalogInfo.ContainsKey("deleted_indexes"))
+                    catalogInfo["deleted_indexes"] = new System.Text.Json.Nodes.JsonArray();
+
+                string newCatalogInfo = catalogInfo.ToJsonString();
+
+                if (oldCatalogInfo == newCatalogInfo)
+                    return;
+
+                manifestLines[manifestLines.Length - 1] = newCatalogInfo;
+                File.WriteAllLines(manifestPath, manifestLines, new UTF8Encoding(false));
+
+                AppendLog($"manifest 보정 완료: catalog {catalogFiles.Length}개 / record {totalRecords}개");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("[경고] manifest 보정 실패: " + ex.Message);
+            }
         }
 
         private string BackupCatalogFiles()
@@ -4317,6 +4472,7 @@ namespace DonkeycarManager
                 }
 
                 catalogFilePath = Path.Combine(dataFolderPath, "catalog_0.catalog");
+                RepairTubManifestCatalogInfo(dataFolderPath);
 
                 AppendLog(
                     $"catalog 재작성 완료: {writtenCount}개 프레임 / catalog 파일 {catalogIndex}개로 분할 저장"

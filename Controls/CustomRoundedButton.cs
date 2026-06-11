@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -43,15 +43,18 @@ namespace DonkeycarManager.Controls
 
         [Category("Appearance")]
         [Description("모서리 반경 (픽셀)")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public int CornerRadius { get; set; } = 10;
 
         [Category("Appearance")]
         [Description("테두리 두께")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public int BorderSize { get; set; } = 2;
 
         Color? borderColorCache = null;
         [Category("Appearance")]
         [Description("테두리 색 - 지정하지 않으면 BackColor에서 계산")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color BorderColor
         {
             get => borderColorCache ?? ControlPaint.Dark(BackColor);
