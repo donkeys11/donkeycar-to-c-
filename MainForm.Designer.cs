@@ -150,7 +150,6 @@ namespace DonkeycarManager
             btnPlayRange = new Button();
             btnClearRange = new Button();
             btnCleanerAutoPlay = new Button();
-           
             tabTrainer = new TabPage();
             lblTitleTrainer = new Label();
             lblMycarPath = new Label();
@@ -598,7 +597,6 @@ namespace DonkeycarManager
             grpCleanerRangeEditor.Controls.Add(btnPlayRange);
             grpCleanerRangeEditor.Controls.Add(btnClearRange);
             grpCleanerRangeEditor.Controls.Add(btnCleanerAutoPlay);
-           
             grpCleanerRangeEditor.Location = new Point(32, 795);
             grpCleanerRangeEditor.Margin = new Padding(4);
             grpCleanerRangeEditor.Name = "grpCleanerRangeEditor";
@@ -726,8 +724,6 @@ namespace DonkeycarManager
             btnCleanerAutoPlay.TabIndex = 8;
             btnCleanerAutoPlay.Text = "자동 재생";
             btnCleanerAutoPlay.UseVisualStyleBackColor = false;
-            // 
-            
             // 
             // tabTrainer
             // 

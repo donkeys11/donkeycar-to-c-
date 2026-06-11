@@ -56,11 +56,17 @@ namespace DonkeycarManager
         private Panel? pnlLossGraph;
         private bool trainingExtensionControlsLocked = false;
         private Panel? pnlLogSplitter;
+        private Label? lblCleanerPlaybackSpeed;
+        private ComboBox? cmbCleanerPlaybackSpeed;
+        private Label? lblPilotPlaybackSpeed;
+        private ComboBox? cmbPilotPlaybackSpeed;
         private int logPanelHeight = LogPanelHeight;
         private bool isDraggingLogSplitter = false;
         private int logSplitterDragStartY = 0;
         private int logSplitterDragStartHeight = 0;
         private bool isAutoRangeSelecting = false;
+        private bool isSyncingPlaybackSpeed = false;
+        private double playbackSpeedMultiplier = 1.0;
 
         private readonly System.Windows.Forms.Timer cleanerRangePlayTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer cleanerAutoPlayTimer = new System.Windows.Forms.Timer();
@@ -135,6 +141,7 @@ namespace DonkeycarManager
             InitializeComponent();
             InitializeTrainingExtensions();
             InitializeLogSplitter();
+            InitializePlaybackSpeedControls();
             ConnectEvents();
 
 
@@ -147,13 +154,13 @@ namespace DonkeycarManager
             txtModelPath.Text = currentRepresentativeModelPath;
             UpdateTrainArgsPreview();
 
-            cleanerRangePlayTimer.Interval = 120;
+            cleanerRangePlayTimer.Interval = GetPlaybackInterval();
             cleanerRangePlayTimer.Tick += CleanerRangePlayTimer_Tick;
 
-            cleanerAutoPlayTimer.Interval = 120;
+            cleanerAutoPlayTimer.Interval = GetPlaybackInterval();
             cleanerAutoPlayTimer.Tick += CleanerAutoPlayTimer_Tick;
 
-            pilotAutoPlayTimer.Interval = 120;
+            pilotAutoPlayTimer.Interval = GetPlaybackInterval();
             pilotAutoPlayTimer.Tick += PilotAutoPlayTimer_Tick;
 
             picPilotTest.Paint += picPilotTest_Paint;
@@ -269,6 +276,87 @@ namespace DonkeycarManager
 
             Controls.Add(pnlLogSplitter);
             pnlLogSplitter.BringToFront();
+        }
+
+        private void InitializePlaybackSpeedControls()
+        {
+            lblCleanerPlaybackSpeed = new Label
+            {
+                AutoSize = false,
+                Font = new Font("맑은 고딕", 10F, FontStyle.Bold),
+                Text = "재생 속도",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            cmbCleanerPlaybackSpeed = CreatePlaybackSpeedComboBox();
+            cmbCleanerPlaybackSpeed.SelectedIndexChanged += PlaybackSpeed_SelectedIndexChanged;
+
+            lblPilotPlaybackSpeed = new Label
+            {
+                AutoSize = false,
+                Font = new Font("맑은 고딕", 10F, FontStyle.Bold),
+                Text = "재생 속도",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            cmbPilotPlaybackSpeed = CreatePlaybackSpeedComboBox();
+            cmbPilotPlaybackSpeed.SelectedIndexChanged += PlaybackSpeed_SelectedIndexChanged;
+
+            grpCleanerRangeEditor.Controls.Add(lblCleanerPlaybackSpeed);
+            grpCleanerRangeEditor.Controls.Add(cmbCleanerPlaybackSpeed);
+            tabPilotTest.Controls.Add(lblPilotPlaybackSpeed);
+            tabPilotTest.Controls.Add(cmbPilotPlaybackSpeed);
+
+            isSyncingPlaybackSpeed = true;
+            cmbCleanerPlaybackSpeed.SelectedIndex = 1;
+            cmbPilotPlaybackSpeed.SelectedIndex = 1;
+            isSyncingPlaybackSpeed = false;
+        }
+
+        private static ComboBox CreatePlaybackSpeedComboBox()
+        {
+            ComboBox comboBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("맑은 고딕", 10F)
+            };
+
+            comboBox.Items.AddRange(new object[] { "0.5배", "1배", "2배", "4배" });
+            return comboBox;
+        }
+
+        private void PlaybackSpeed_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (isSyncingPlaybackSpeed || sender is not ComboBox source || source.SelectedIndex < 0)
+                return;
+
+            double[] multipliers = { 0.5, 1.0, 2.0, 4.0 };
+            playbackSpeedMultiplier = multipliers[Math.Min(source.SelectedIndex, multipliers.Length - 1)];
+
+            isSyncingPlaybackSpeed = true;
+
+            if (cmbCleanerPlaybackSpeed != null && cmbCleanerPlaybackSpeed.SelectedIndex != source.SelectedIndex)
+                cmbCleanerPlaybackSpeed.SelectedIndex = source.SelectedIndex;
+
+            if (cmbPilotPlaybackSpeed != null && cmbPilotPlaybackSpeed.SelectedIndex != source.SelectedIndex)
+                cmbPilotPlaybackSpeed.SelectedIndex = source.SelectedIndex;
+
+            isSyncingPlaybackSpeed = false;
+            ApplyPlaybackInterval();
+            AppendLog($"재생 속도 변경: {playbackSpeedMultiplier:0.#}배");
+        }
+
+        private int GetPlaybackInterval()
+        {
+            return Math.Max(30, (int)Math.Round(120.0 / playbackSpeedMultiplier));
+        }
+
+        private void ApplyPlaybackInterval()
+        {
+            int interval = GetPlaybackInterval();
+            cleanerRangePlayTimer.Interval = interval;
+            cleanerAutoPlayTimer.Interval = interval;
+            pilotAutoPlayTimer.Interval = interval;
         }
 
         private void LayoutTrainerControls()
@@ -471,9 +559,9 @@ namespace DonkeycarManager
             btnClearDataPath.SetBounds(pathX + pathWidth + iconSize + 12, pathY - 1, iconSize, 34);
             btnUndo.SetBounds(pathX + pathWidth + iconSize * 2 + 16, pathY - 1, iconSize, 34);
 
-            int rangeHeight = Math.Max(170, Math.Min(230, tabHeight / 5));
+            int rangeHeight = Math.Max(250, Math.Min(300, tabHeight / 4));
             int rangeY = tabHeight - margin - rangeHeight;
-            int adjustHeight = 136;
+            int adjustHeight = 148;
             int topControlsBottom = Math.Max(titleBottom, pathY + 34);
             int infoY = topControlsBottom + 14;
             lblCleanerInfo.Location = new Point(mainX, infoY);
@@ -484,10 +572,10 @@ namespace DonkeycarManager
 
             int adjustY = previewY + previewHeight + 14;
             lblImageAdjust.Location = new Point(mainX, adjustY);
-            chkGrayscale.SetBounds(mainX, adjustY + 46, 190, 32);
-            chkFlipHorizontal.SetBounds(mainX, adjustY + 84, 340, 32);
+            chkGrayscale.SetBounds(mainX, adjustY + 46, 210, 34);
+            chkFlipHorizontal.SetBounds(mainX, adjustY + 86, 450, 34);
 
-            int sliderLabelX = mainX + 350;
+            int sliderLabelX = mainX + 460;
             int sliderX = sliderLabelX + 84;
             int saveButtonWidth = 300;
             int sliderWidth = Math.Max(260, mainWidth - (sliderX - mainX) - saveButtonWidth - 34);
@@ -521,24 +609,44 @@ namespace DonkeycarManager
 
         private void LayoutCleanerRangeEditorControls()
         {
+            if (lblCleanerPlaybackSpeed == null || cmbCleanerPlaybackSpeed == null)
+                return;
+
             int margin = 18;
             int groupWidth = Math.Max(grpCleanerRangeEditor.ClientSize.Width, 760);
-            int groupHeight = Math.Max(grpCleanerRangeEditor.ClientSize.Height, 160);
-            int actionWidth = 190;
+            int groupHeight = Math.Max(grpCleanerRangeEditor.ClientSize.Height, 230);
+            int actionWidth = 200;
             int actionGap = 12;
             int actionX = groupWidth - margin - actionWidth * 2 - actionGap;
             int timelineWidth = Math.Max(320, actionX - margin * 2);
 
-            lblCleanerRangeInfo.Location = new Point(margin, 28);
+            lblCleanerRangeInfo.AutoSize = false;
+            lblCleanerRangeInfo.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            lblCleanerRangeInfo.TextAlign = ContentAlignment.MiddleLeft;
+            lblCleanerRangeInfo.SetBounds(margin, 22, 220, 36);
             lblCleanerRangeHint.AutoSize = false;
             lblCleanerRangeHint.Font = new Font("맑은 고딕", 9.5F);
-            lblCleanerRangeHint.SetBounds(margin + 230, 28, Math.Max(420, timelineWidth - 250), 30);
+            lblCleanerRangeHint.TextAlign = ContentAlignment.MiddleLeft;
+            lblCleanerRangeHint.SetBounds(margin + 230, 22, Math.Max(420, timelineWidth - 250), 36);
+            int speedLabelWidth = Math.Max(140, lblCleanerPlaybackSpeed.PreferredSize.Width + 18);
+            lblCleanerPlaybackSpeed.SetBounds(actionX, 22, speedLabelWidth, 38);
+            cmbCleanerPlaybackSpeed.SetBounds(
+                actionX + speedLabelWidth + 8,
+                23,
+                actionWidth * 2 + actionGap - speedLabelWidth - 8,
+                38);
 
-            int timelineY = 64;
-            int timelineHeight = Math.Max(70, groupHeight - timelineY - 56);
+            lblCleanerTimelineScrollInfo.AutoSize = false;
+            lblCleanerTimelineScrollInfo.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            lblCleanerTimelineScrollInfo.ForeColor = Color.FromArgb(80, 80, 80);
+            lblCleanerTimelineScrollInfo.TextAlign = ContentAlignment.MiddleLeft;
+            lblCleanerTimelineScrollInfo.SetBounds(margin, 60, timelineWidth, 30);
+
+            int timelineY = 94;
+            int scrollY = groupHeight - 30;
+            int timelineHeight = Math.Max(90, scrollY - timelineY - 6);
             pnlCleanerTimeline.SetBounds(margin, timelineY, timelineWidth, timelineHeight);
-            hsbCleanerTimeline.SetBounds(margin, timelineY + timelineHeight + 6, timelineWidth, 20);
-            lblCleanerTimelineScrollInfo.Location = new Point(margin, timelineY + timelineHeight + 32);
+            hsbCleanerTimeline.SetBounds(margin, scrollY, timelineWidth, 20);
 
             Button[] rangeButtons =
             {
@@ -552,11 +660,16 @@ namespace DonkeycarManager
             foreach (Button button in rangeButtons)
                 button.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
 
-            btnDeleteRange.SetBounds(actionX, timelineY, actionWidth, 46);
-            btnPlayRange.SetBounds(actionX + actionWidth + actionGap, timelineY, actionWidth, 46);
-            btnClearRange.SetBounds(actionX, timelineY + 56, actionWidth, 46);
-            btnCleanerAutoPlay.SetBounds(actionX + actionWidth + actionGap, timelineY + 56, actionWidth, 46);
-            btnCleanerMark.SetBounds(actionX, timelineY + 112, actionWidth * 2 + actionGap, 46);
+            int actionButtonHeight = 48;
+            int actionStartY = 70;
+            int secondRowY = actionStartY + actionButtonHeight + 10;
+            int markRowY = secondRowY + actionButtonHeight + 10;
+
+            btnDeleteRange.SetBounds(actionX, actionStartY, actionWidth, actionButtonHeight);
+            btnPlayRange.SetBounds(actionX + actionWidth + actionGap, actionStartY, actionWidth, actionButtonHeight);
+            btnClearRange.SetBounds(actionX, secondRowY, actionWidth, actionButtonHeight);
+            btnCleanerAutoPlay.SetBounds(actionX + actionWidth + actionGap, secondRowY, actionWidth, actionButtonHeight);
+            btnCleanerMark.SetBounds(actionX, markRowY, actionWidth * 2 + actionGap, actionButtonHeight);
 
 
 
@@ -674,7 +787,11 @@ namespace DonkeycarManager
 
         private void LayoutPilotTestControls()
         {
-            if (tabPilotTest == null || picPilotTest == null || lstPilotFrames == null)
+            if (tabPilotTest == null
+                || picPilotTest == null
+                || lstPilotFrames == null
+                || lblPilotPlaybackSpeed == null
+                || cmbPilotPlaybackSpeed == null)
                 return;
 
             int margin = 32;
@@ -716,6 +833,10 @@ namespace DonkeycarManager
             btnRunPilotTest.Text = "현재 이미지로 예측";
             btnRunPilotTest.SetBounds(fieldX, y, runButtonWidth, commandButtonHeight);
             btnPilotAutoPlay.SetBounds(fieldX + runButtonWidth + buttonGap, y, autoButtonWidth, commandButtonHeight);
+            int speedLabelX = fieldX + runButtonWidth + buttonGap + autoButtonWidth + 24;
+            int speedLabelWidth = Math.Max(140, lblPilotPlaybackSpeed.PreferredSize.Width + 18);
+            lblPilotPlaybackSpeed.SetBounds(speedLabelX, y + 6, speedLabelWidth, 40);
+            cmbPilotPlaybackSpeed.SetBounds(speedLabelX + speedLabelWidth + 8, y + 5, 150, 40);
             btnUseViewerFrame.Visible = false;
             btnUseViewerFrame.Enabled = false;
             btnUseViewerFrame.SetBounds(fieldX + runButtonWidth + buttonGap + autoButtonWidth + buttonGap, y, 1, commandButtonHeight);
@@ -727,8 +848,8 @@ namespace DonkeycarManager
             int contentWidth = Math.Max(720, tabWidth - margin * 2);
             int contentHeight = Math.Max(260, tabHeight - contentTop - margin);
 
-            int listWidth = Math.Max(250, Math.Min(290, (int)(contentWidth * 0.14)));
-            int statWidth = Math.Max(500, Math.Min(580, (int)(contentWidth * 0.27)));
+            int listWidth = Math.Max(320, Math.Min(380, (int)(contentWidth * 0.18)));
+            int statWidth = Math.Max(540, Math.Min(620, (int)(contentWidth * 0.29)));
             int listX = tabWidth - margin - listWidth;
             int statX = listX - gap - statWidth;
             int picX = margin;
@@ -750,29 +871,34 @@ namespace DonkeycarManager
             {
                 label.AutoSize = false;
                 label.Width = statWidth;
-                label.Height = 32;
+                label.Height = 38;
+                label.TextAlign = ContentAlignment.MiddleLeft;
             }
 
-            lblActualAngle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
-            lblPredictedAngle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
-            lblActualThrottle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
-            lblPredictedThrottle.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
-            lblAngleError.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
-            lblPilotWarning.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            lblActualAngle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblPredictedAngle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblActualThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblPredictedThrottle.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblAngleError.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblPilotWarning.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             lblPilotNote.AutoSize = false;
-            lblPilotNote.Font = new Font("맑은 고딕", 9.5F);
+            lblPilotNote.Font = new Font("맑은 고딕", 10F);
+            lblPilotNote.TextAlign = ContentAlignment.TopLeft;
 
-            lblActualAngle.SetBounds(statX, contentTop, statWidth, 32);
-            lblPredictedAngle.SetBounds(statX, contentTop + 36, statWidth, 32);
-            lblActualThrottle.SetBounds(statX, contentTop + 84, statWidth, 32);
-            lblPredictedThrottle.SetBounds(statX, contentTop + 120, statWidth, 32);
-            lblAngleError.SetBounds(statX, contentTop + 172, statWidth, 32);
-            lblPilotWarning.SetBounds(statX, contentTop + 216, statWidth, 36);
-            lblPilotNote.SetBounds(statX, contentTop + 268, statWidth, Math.Max(120, contentHeight - 268));
+            lblActualAngle.SetBounds(statX, contentTop, statWidth, 38);
+            lblPredictedAngle.SetBounds(statX, contentTop + 42, statWidth, 38);
+            lblActualThrottle.SetBounds(statX, contentTop + 96, statWidth, 38);
+            lblPredictedThrottle.SetBounds(statX, contentTop + 138, statWidth, 38);
+            lblAngleError.SetBounds(statX, contentTop + 194, statWidth, 38);
+            lblPilotWarning.SetBounds(statX, contentTop + 244, statWidth, 42);
+            lblPilotNote.SetBounds(statX, contentTop + 304, statWidth, Math.Max(120, contentHeight - 304));
 
             lblPilotImageList.AutoSize = false;
-            lblPilotImageList.SetBounds(listX, contentTop, listWidth, 32);
-            lstPilotFrames.SetBounds(listX, contentTop + 34, listWidth, Math.Max(180, contentHeight - 34));
+            lblPilotImageList.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            lblPilotImageList.TextAlign = ContentAlignment.MiddleLeft;
+            lblPilotImageList.SetBounds(listX, contentTop, listWidth, 40);
+            lstPilotFrames.Font = new Font("맑은 고딕", 9.5F);
+            lstPilotFrames.SetBounds(listX, contentTop + 44, listWidth, Math.Max(180, contentHeight - 44));
         }
 
 
@@ -1750,8 +1876,8 @@ namespace DonkeycarManager
             try
             {
                 btnPilotAutoPlay.Enabled = false;
-                lblPredictedAngle.Text = "예측 Angle: 모델 로딩 중...";
-                lblPredictedThrottle.Text = "예측 Throttle: 모델 로딩 중...";
+                lblPredictedAngle.Text = "예측 핸들각도: 모델 로딩 중...";
+                lblPredictedThrottle.Text = "예측 속도: 모델 로딩 중...";
                 lblPilotWarning.Text = "판정: 예측 서버 준비 중";
                 lblPilotWarning.ForeColor = Color.DimGray;
 
@@ -1759,8 +1885,8 @@ namespace DonkeycarManager
             }
             catch (Exception ex)
             {
-                lblPredictedAngle.Text = "예측 Angle: 서버 실패";
-                lblPredictedThrottle.Text = "예측 Throttle: 서버 실패";
+                lblPredictedAngle.Text = "예측 핸들각도: 서버 실패";
+                lblPredictedThrottle.Text = "예측 속도: 서버 실패";
                 lblPilotWarning.Text = "판정: 예측 서버 실패";
                 lblPilotWarning.ForeColor = Color.Red;
                 AppendLog("실시간 예측 서버 시작 실패: " + ex.Message);
@@ -3647,11 +3773,11 @@ namespace DonkeycarManager
             overlayPredictedThrottle = null;
             picPilotTest.Invalidate();
 
-            lblActualAngle.Text = $"실제 Angle: {frame.Angle:F4}";
-            lblActualThrottle.Text = $"실제 Throttle: {frame.Throttle:F4}";
-            lblPredictedAngle.Text = "예측 Angle: 실행 중...";
-            lblPredictedThrottle.Text = "예측 Throttle: 실행 중...";
-            lblAngleError.Text = "Angle Error: 계산 중...";
+            lblActualAngle.Text = $"실제 핸들각도: {frame.Angle:F4}";
+            lblActualThrottle.Text = $"실제 속도: {frame.Throttle:F4}";
+            lblPredictedAngle.Text = "예측 핸들각도: 실행 중...";
+            lblPredictedThrottle.Text = "예측 속도: 실행 중...";
+            lblAngleError.Text = "핸들각도 오류: 계산 중...";
             lblPilotWarning.Text = "판정: 예측 실행 중";
             lblPilotWarning.ForeColor = Color.DimGray;
 
@@ -3677,9 +3803,9 @@ namespace DonkeycarManager
             }
             catch (Exception ex)
             {
-                lblPredictedAngle.Text = "예측 Angle: 실패";
-                lblPredictedThrottle.Text = "예측 Throttle: 실패";
-                lblAngleError.Text = "Angle Error: 실패";
+                lblPredictedAngle.Text = "예측 핸들각도: 실패";
+                lblPredictedThrottle.Text = "예측 속도: 실패";
+                lblAngleError.Text = "핸들각도 오류: 실패";
                 lblPilotWarning.Text = "판정: 예측 실패";
                 lblPilotWarning.ForeColor = Color.Red;
 
@@ -3748,9 +3874,9 @@ namespace DonkeycarManager
 
                     if (requestVersion == livePredictVersion && currentIndex == frameIndex)
                     {
-                        lblPredictedAngle.Text = "예측 Angle: 계산 중...";
-                        lblPredictedThrottle.Text = "예측 Throttle: 계산 중...";
-                        lblAngleError.Text = "Angle Error: 계산 중...";
+                        lblPredictedAngle.Text = "예측 핸들각도: 계산 중...";
+                        lblPredictedThrottle.Text = "예측 속도: 계산 중...";
+                        lblAngleError.Text = "핸들각도 오류: 계산 중...";
                     }
 
                     try
@@ -3791,9 +3917,9 @@ namespace DonkeycarManager
         {
             double angleError = Math.Abs(frame.Angle - predictedAngle);
 
-            lblPredictedAngle.Text = $"예측 Angle: {predictedAngle:F4}";
-            lblPredictedThrottle.Text = $"예측 Throttle: {predictedThrottle:F4}";
-            lblAngleError.Text = $"Angle Error: {angleError:F4}";
+            lblPredictedAngle.Text = $"예측 핸들각도: {predictedAngle:F4}";
+            lblPredictedThrottle.Text = $"예측 속도: {predictedThrottle:F4}";
+            lblAngleError.Text = $"핸들각도 오류: {angleError:F4}";
 
             lblPilotWarning.ForeColor = GetErrorColor(angleError);
             lblPilotWarning.Text = "판정: " + GetErrorMessage(angleError);
@@ -3810,9 +3936,9 @@ namespace DonkeycarManager
         {
             livePredictFailureCount++;
 
-            lblPredictedAngle.Text = "예측 Angle: 실패";
-            lblPredictedThrottle.Text = "예측 Throttle: 실패";
-            lblAngleError.Text = "Angle Error: 실패";
+            lblPredictedAngle.Text = "예측 핸들각도: 실패";
+            lblPredictedThrottle.Text = "예측 속도: 실패";
+            lblAngleError.Text = "핸들각도 오류: 실패";
             lblPilotWarning.Text = "판정: 실시간 예측 실패";
             lblPilotWarning.ForeColor = Color.Red;
 
@@ -4237,11 +4363,11 @@ namespace DonkeycarManager
             lblCleanerInfo.Text =
                 $"선택 프레임 정보: index={frame.Index}, angle={frame.Angle:F4}, throttle={frame.Throttle:F4}, mode={frame.Mode}";
 
-            lblActualAngle.Text = $"실제 Angle: {frame.Angle:F4}";
-            lblActualThrottle.Text = $"실제 Throttle: {frame.Throttle:F4}";
-            lblPredictedAngle.Text = "예측 Angle: -";
-            lblPredictedThrottle.Text = "예측 Throttle: -";
-            lblAngleError.Text = "Angle Error: -";
+            lblActualAngle.Text = $"실제 핸들각도: {frame.Angle:F4}";
+            lblActualThrottle.Text = $"실제 속도: {frame.Throttle:F4}";
+            lblPredictedAngle.Text = "예측 핸들각도: -";
+            lblPredictedThrottle.Text = "예측 속도: -";
+            lblAngleError.Text = "핸들각도 오류: -";
             lblPilotWarning.Text = "판정: -";
             lblPilotWarning.ForeColor = Color.DimGray;
 
@@ -4401,11 +4527,11 @@ namespace DonkeycarManager
 
             lblCleanerInfo.Text = "선택 프레임 정보: -";
 
-            lblActualAngle.Text = "실제 Angle: -";
-            lblPredictedAngle.Text = "예측 Angle: -";
-            lblActualThrottle.Text = "실제 Throttle: -";
-            lblPredictedThrottle.Text = "예측 Throttle: -";
-            lblAngleError.Text = "Angle Error: -";
+            lblActualAngle.Text = "실제 핸들각도: -";
+            lblPredictedAngle.Text = "예측 핸들각도: -";
+            lblActualThrottle.Text = "실제 속도: -";
+            lblPredictedThrottle.Text = "예측 속도: -";
+            lblAngleError.Text = "핸들각도 오류: -";
             lblPilotWarning.Text = "판정: -";
             lblPilotWarning.ForeColor = Color.DimGray;
 
